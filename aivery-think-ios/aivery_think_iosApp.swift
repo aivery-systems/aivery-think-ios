@@ -9,9 +9,25 @@ import SwiftUI
 
 @main
 struct aivery_think_iosApp: App {
+    @State private var isSignedIn = false
+    @StateObject private var settings = UserSettings.shared
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            Group {
+                if isSignedIn {
+                    ContentView(isSignedIn: $isSignedIn)
+                } else {
+                    APIKeyEntryView(isSignedIn: $isSignedIn)
+                }
+            }
+            .tint(Color.accentColor)
+            .preferredColorScheme(settings.resolvedColorScheme)
+            .onAppear {
+                if APIClient.shared.restoreApiKey() {
+                    isSignedIn = true
+                }
+            }
         }
     }
 }

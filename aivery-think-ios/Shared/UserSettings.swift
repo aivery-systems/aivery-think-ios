@@ -1,0 +1,18 @@
+import SwiftUI
+import Combine
+
+final class UserSettings: ObservableObject {
+    @AppStorage("agentId") var agentId: String = "default"
+    @AppStorage("showThinking") var showThinking: Bool = true
+    @AppStorage("colorScheme") var colorScheme: String = "system"
+
+    static let shared = UserSettings()
+
+    var resolvedColorScheme: ColorScheme? {
+        switch colorScheme {
+        case "dark":  return .dark
+        case "light": return .light
+        default:      return nil  // nil = follow system
+        }
+    }
+}
