@@ -6,6 +6,10 @@ struct SettingsView: View {
 
     @State private var agentId = APIClient.shared.agentId
     @State private var showSignOutConfirm = false
+    #if DEBUG
+    @State private var devHost = APIClient.storedDevHost
+    @State private var endpointTick = 0
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -52,7 +56,48 @@ struct SettingsView: View {
                     Toggle(isOn: $settings.showThinking) {
                         HStack { icon("brain", tint: .teal); Text("Show thinking") }
                     }
+                    Toggle(isOn: $settings.enableReasoning) {
+                        HStack { icon("sparkles", tint: .purple); Text("Enable reasoning") }
+                    }
                 }
+
+                #if DEBUG
+                // ── Developer (Debug builds only) ─────────────────────────
+                Section {
+                    HStack {
+                        icon("network", tint: .orange)
+                        Text("API Host")
+                        Spacer()
+                        TextField("auto-detect", text: $devHost)
+                            .multilineTextAlignment(.trailing)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .keyboardType(.URL)
+                            .foregroundStyle(.secondary)
+                            .onSubmit { applyHost() }
+                    }
+                    HStack {
+                        Button("Use Tailscale") { devHost = APIClient.defaultDevHost; applyHost() }
+                            .font(.subheadline)
+                        Spacer()
+                        Button("Reset") { devHost = ""; applyHost() }
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Fabric  \(APIClient.shared.baseURL.absoluteString)")
+                        Text("Cortex  \(APIClient.shared.cortexURL.absoluteString)")
+                    }
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .id(endpointTick)
+                } header: {
+                    Text("Developer — Local API")
+                } footer: {
+                    Text("Debug only. Points the app at your Mac's API (ports 5128/5127). Run ./run-api.sh local-tailscale + ./run-cortex.sh local-tailscale and join the same tailnet to use it remotely. Release builds always use api/cortex.aivery.systems.")
+                }
+                #endif
 
                 // ── Account ───────────────────────────────────────────────
                 Section {
@@ -74,7 +119,15 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Row helpers
+    // MARK: - Helpers
+
+    #if DEBUG
+    private func applyHost() {
+        APIClient.shared.setDevHost(devHost)
+        devHost = APIClient.storedDevHost   // reflect normalized/cleared value
+        endpointTick += 1                   // refresh the endpoint readout
+    }
+    #endif
 
     private var providerSummary: String {
         guard let ps = ProviderSettingsLocal.load(), ps.enabled, !ps.baseUrl.isEmpty else { return "Default" }

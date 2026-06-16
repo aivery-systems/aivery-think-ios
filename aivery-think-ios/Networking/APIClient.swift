@@ -55,14 +55,40 @@ final class APIClient {
         return address
     }
 
+    // Persistent in-app host override (Settings → Developer). Survives relaunch
+    // with no Xcode tether, so a standalone Debug build can reach the Mac's API
+    // over Tailscale from anywhere on the tailnet.
+    static let devHostKey = "aivery-dev-host"
+    static let defaultDevHost = "christians-macbook-pro.tail2787ff.ts.net"
+
+    /// The override value shown/edited in Settings. Defaults to the Tailscale
+    /// MagicDNS name until the user changes it (empty == fall through to auto-detect).
+    static var storedDevHost: String {
+        (UserDefaults.standard.string(forKey: devHostKey) ?? defaultDevHost)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// The host the Debug build talks to. Precedence:
+    /// 1. In-app override (defaults to the Tailscale name).
+    /// 2. AIVERY_LOCAL_HOST scheme env var (only if the override is cleared).
+    /// 3. Auto-detected LAN IPv4.
     private static var localHost: String {
-        // Take the first whitespace/newline-delimited token, so a mangled env-var
-        // value (stray spaces, duplicated lines) can't corrupt the URL.
+        let stored = storedDevHost
+        if !stored.isEmpty { return stored }
         if let raw = ProcessInfo.processInfo.environment["AIVERY_LOCAL_HOST"],
            let token = raw.split(whereSeparator: { $0.isWhitespace }).first {
             return String(token)
         }
         return APIClient.localIPv4Address() ?? "127.0.0.1"
+    }
+
+    /// (Re)build the Debug base/cortex URLs from the current host. The full-URL env
+    /// overrides AIVERY_BASE_URL / AIVERY_CORTEX_URL still win if set.
+    private static func debugURLs() -> (base: URL, cortex: URL) {
+        let host = localHost
+        let env = ProcessInfo.processInfo.environment
+        return (makeURL(env["AIVERY_BASE_URL"] ?? "http://\(host):5128"),
+                makeURL(env["AIVERY_CORTEX_URL"] ?? "http://\(host):5127"))
     }
     #endif
 
@@ -86,14 +112,25 @@ final class APIClient {
 
     private init() {
         #if DEBUG
-        let host = APIClient.localHost
-        let env = ProcessInfo.processInfo.environment
-        baseURL = APIClient.makeURL(env["AIVERY_BASE_URL"] ?? "http://\(host):5128")
-        cortexURL = APIClient.makeURL(env["AIVERY_CORTEX_URL"] ?? "http://\(host):5127")
-        print("🌐 APIClient host=\(host)  base=\(baseURL)  cortex=\(cortexURL)")
+        let urls = APIClient.debugURLs()
+        baseURL = urls.base
+        cortexURL = urls.cortex
+        print("🌐 APIClient base=\(baseURL)  cortex=\(cortexURL)")
         #else
         baseURL = URL(string: "https://api.aivery.systems")!
         cortexURL = URL(string: "https://cortex.aivery.systems")!
+        #endif
+    }
+
+    /// Update the dev host override and re-point base/cortex immediately (Debug only).
+    func setDevHost(_ host: String) {
+        #if DEBUG
+        UserDefaults.standard.set(host.trimmingCharacters(in: .whitespacesAndNewlines),
+                                  forKey: APIClient.devHostKey)
+        let urls = APIClient.debugURLs()
+        baseURL = urls.base
+        cortexURL = urls.cortex
+        print("🌐 APIClient reconfigured base=\(baseURL)  cortex=\(cortexURL)")
         #endif
     }
 
