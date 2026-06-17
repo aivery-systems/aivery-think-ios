@@ -222,6 +222,21 @@ final class APIClient {
         }
     }
 
+    // Direct capture: store a memory via the Fabric protocol write endpoint
+    // (embeds + persists server-side). Used by the Remember intent / share sheet.
+    func writeMemory(content: String, type: String = "semantic", source: String) async throws {
+        struct Body: Encodable {
+            let content: String
+            let agent_id: String
+            let type: String
+            let source: String
+            let confidence: Double
+        }
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let body = Body(content: trimmed, agent_id: agentId, type: type, source: source, confidence: 1.0)
+        try await requestEmpty("/memory/write", method: "POST", body: body)
+    }
+
     private struct RateLimitBody: Decodable {
         let reason: String?
         let resetsAt: String?
