@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 private let chatPlaceholders = [
     "What do you want to remember?",
@@ -21,6 +22,8 @@ struct ChatView: View {
     @FocusState private var inputFocused: Bool
     @State private var placeholderIndex = Int.random(in: 0..<chatPlaceholders.count)
     @State private var placeholderVisible = true
+    @State private var photoItem: PhotosPickerItem?
+    @State private var selectedImage: UIImage?
 
     var body: some View {
         NavigationStack {
@@ -59,6 +62,7 @@ struct ChatView: View {
                                     onDelete: { Task { await vm.delete(msg) } }
                                 )
                                 .id(msg.id)
+                                .transition(.scale(scale: 0.96, anchor: msg.isUser ? .bottomTrailing : .bottomLeading).combined(with: .opacity))
                             }
 
                             // Live streaming bubble
@@ -79,6 +83,7 @@ struct ChatView: View {
                             Color.clear.frame(height: 80).id("bottom-anchor")
                         }
                         .padding(.top, 8)
+                        .animation(.spring(response: 0.34, dampingFraction: 0.82), value: vm.messages.count)
                     }
                     .onChange(of: vm.streamingText) {
                         withAnimation(.linear(duration: 0.1)) {
@@ -124,8 +129,7 @@ struct ChatView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        vm.startNewChat()
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        vm.startNewChat()   // fires its own crisp haptic
                     } label: {
                         Label("New Chat", systemImage: "square.and.pencil")
                             .labelStyle(.iconOnly)
@@ -145,6 +149,7 @@ struct ChatView: View {
             }
             .toolbarBackground(.thinMaterial, for: .navigationBar)
             .task { await vm.loadHistory() }
+            .task { vm.requestPermissionsIfNeeded() }
             .task {
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(3.5))
@@ -175,17 +180,33 @@ struct ChatView: View {
     private var inputBar: some View {
         GlassEffectContainer(spacing: 8) {
             HStack(alignment: .bottom, spacing: 8) {
-                // Think-mode toggle — its own glass circle (like iOS 26's "+")
-                Button {
-                    vm.thinkMode.toggle()
-                    UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                } label: {
-                    Image(systemName: vm.thinkMode ? "brain.fill" : "brain")
-                        .font(.system(size: 19))
-                        .foregroundStyle(vm.thinkMode ? Color.accentColor : .secondary)
-                        .frame(width: 40, height: 40)
+                // Photo picker button
+                PhotosPicker(selection: $photoItem, matching: .images) {
+                    ZStack {
+                        if let img = selectedImage {
+                            Image(uiImage: img)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 40, height: 40)
+                                .clipShape(Circle())
+                        } else {
+                            Image(systemName: "photo")
+                                .font(.system(size: 19))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 40, height: 40)
+                        }
+                    }
                 }
                 .glassEffect(.regular.interactive(), in: .circle)
+                .onChange(of: photoItem) {
+                    Task {
+                        if let data = try? await photoItem?.loadTransferable(type: Data.self),
+                           let img = UIImage(data: data) {
+                            selectedImage = img
+                            Haptics.tapLight()
+                        }
+                    }
+                }
 
                 // Text field — single glass capsule with the send button tucked inside
                 HStack(alignment: .bottom, spacing: 4) {
@@ -201,12 +222,13 @@ struct ChatView: View {
                             .lineLimit(1...6)
                             .focused($inputFocused)
                             .onSubmit { Task { await send() } }
+                            .onChange(of: inputFocused) { if inputFocused { Haptics.prepare() } }
                     }
                     .padding(.leading, 16)
                     .padding(.vertical, 10)
 
                     Button {
-                        if vm.isStreaming { vm.cancelStream() } else { Task { await send() } }
+                        if vm.isStreaming { Haptics.tapLight(); vm.cancelStream() } else { Task { await send() } }
                     } label: {
                         Image(systemName: vm.isStreaming ? "stop.circle.fill" : "arrow.up.circle.fill")
                             .font(.system(size: 30))
@@ -228,7 +250,7 @@ struct ChatView: View {
     }
 
     private var canSend: Bool {
-        !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedImage != nil
     }
 
     // Show a timestamp above the first message and whenever there's a >15-min gap.
@@ -241,7 +263,10 @@ struct ChatView: View {
 
     private func send() async {
         let text = inputText
+        let image = selectedImage
         inputText = ""
-        await vm.sendMessage(text)
+        selectedImage = nil
+        photoItem = nil
+        await vm.sendMessage(text, image: image)
     }
 }

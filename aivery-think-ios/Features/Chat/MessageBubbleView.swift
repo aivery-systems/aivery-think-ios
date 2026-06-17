@@ -9,6 +9,7 @@ struct MessageBubbleView: View {
     var onBranch: (() -> Void)?
     var onDelete: (() -> Void)?
     @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var settings = UserSettings.shared
 
     // --bubble-user: #4CC9A7 dark / #B9A7FF light  (matches web globals.css)
     private var bubbleUserColor: Color {
@@ -25,7 +26,7 @@ struct MessageBubbleView: View {
 
             VStack(alignment: message.isUser ? .trailing : .leading, spacing: 4) {
                 // Thinking disclosure (assistant only, first bubble of a run)
-                if !message.isUser, isFirstInGroup, let thinking = extractThinking(from: message.content), !thinking.isEmpty {
+                if !message.isUser, isFirstInGroup, settings.showThinking, let thinking = extractThinking(from: message.content), !thinking.isEmpty {
                     DisclosureGroup {
                         Text(thinking)
                             .font(.footnote)
@@ -103,16 +104,7 @@ struct MessageBubbleView: View {
                 .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else {
-            // Use built-in AttributedString markdown (no external dependency)
-            if let attributed = try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
-                Text(attributed)
-                    .foregroundStyle(.primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                Text(text)
-                    .foregroundStyle(.primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+            MarkdownContentView(text: text)
         }
     }
 
@@ -163,13 +155,19 @@ struct StreamingBubbleView: View {
                 }
 
                 if !displayResponse.isEmpty {
-                    Text(displayResponse)
-                        .foregroundStyle(.primary)
-                        .font(.body)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(.thinMaterial, in: ChatBubbleShape(isUser: false, hasTail: true))
+                    // Blinking caret trails the streamed text like a terminal cursor.
+                    // Keeping the glyph always in layout (toggling opacity) avoids reflow.
+                    TimelineView(.periodic(from: .now, by: 0.6)) { ctx in
+                        let on = Int(ctx.date.timeIntervalSinceReferenceDate / 0.6) % 2 == 0
+                        (Text(displayResponse)
+                            + Text("▍").foregroundStyle(Color.primary.opacity(on ? 0.5 : 0.0)))
+                            .foregroundStyle(.primary)
+                            .font(.body)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(.thinMaterial, in: ChatBubbleShape(isUser: false, hasTail: true))
                 }
             }
             Spacer(minLength: 56)

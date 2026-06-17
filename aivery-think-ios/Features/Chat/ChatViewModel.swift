@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import UIKit
+import CoreLocation
 
 @MainActor
 final class ChatViewModel: ObservableObject {
@@ -13,7 +14,7 @@ final class ChatViewModel: ObservableObject {
     @Published var retrievedMemories: [RetrievedMemory] = []
     @Published var showRetrievalSheet = false
     @Published var errorMessage: String?
-    @Published var thinkMode = false
+    private var thinkMode: Bool { UserSettings.shared.enableReasoning }
     // Plexus triggers — each increment fires an effect in PlexusView
     @Published var plexusRetrievedCount: Int = 0
     @Published var plexusWrittenCount: Int = 0
@@ -24,15 +25,16 @@ final class ChatViewModel: ObservableObject {
     }
 
     private let sseClient = SSEClient()
+    private let location = LocationManager.shared
 
     // MARK: – Send
 
-    func sendMessage(_ text: String) async {
+    func sendMessage(_ text: String, image: UIImage? = nil) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !isStreaming else { return }
+        guard !trimmed.isEmpty || image != nil, !isStreaming else { return }
 
         // Ensure a conversation exists (titled from the first message)
-        await ensureConversation(firstMessage: trimmed)
+        await ensureConversation(firstMessage: trimmed.isEmpty ? "📷 Image" : trimmed)
 
         // Append user message — stays visible even on error
         messages.append(MessageRecord(
@@ -41,8 +43,8 @@ final class ChatViewModel: ObservableObject {
             content: trimmed,
             created_at: ISO8601DateFormatter().string(from: Date())
         ))
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        streamAssistant(userText: trimmed)
+        Haptics.tapMedium()
+        streamAssistant(userText: trimmed, image: image, coordinate: location.coordinate)
     }
 
     // Re-send a user message (drops everything after it, then re-streams).
@@ -50,8 +52,8 @@ final class ChatViewModel: ObservableObject {
         guard !isStreaming, userMessage.isUser,
               let idx = messages.firstIndex(where: { $0.id == userMessage.id }) else { return }
         if idx + 1 < messages.count { messages.removeSubrange((idx + 1)..<messages.count) }
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        streamAssistant(userText: stripThink(userMessage.content))
+        Haptics.tapLight()
+        streamAssistant(userText: stripThink(userMessage.content), image: nil)
     }
 
     // Regenerate the response to the user message preceding this assistant message.
@@ -63,13 +65,13 @@ final class ChatViewModel: ObservableObject {
         // Best-effort: delete the stale assistant turn server-side
         if let cid = conversationId { await deleteServerMessage(cid: cid, mid: assistantMessage.id) }
         messages.removeSubrange(idx..<messages.count)
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        streamAssistant(userText: stripThink(userText))
+        Haptics.tapLight()
+        streamAssistant(userText: stripThink(userText), image: nil)
     }
 
     // Builds the Cortex request from current state and starts streaming.
     // The current user message must already be the last item in `messages`.
-    private func streamAssistant(userText: String) {
+    private func streamAssistant(userText: String, image: UIImage? = nil, coordinate: (lat: Double, lon: Double)? = nil) {
         retrievalStages = []
         retrievedMemories = []
 
@@ -90,7 +92,10 @@ final class ChatViewModel: ObservableObject {
                 history: Array(history),
                 systemPrompt: ChatPrefsLocal.systemPrompt,
                 chatStyle: ChatPrefsLocal.chatStyle,
-                provider: ProviderSettingsLocal.load()
+                provider: ProviderSettingsLocal.load(),
+                image: image,
+                latitude: coordinate?.lat,
+                longitude: coordinate?.lon
             )
             req.httpBody = try JSONEncoder().encode(body)
         } catch {
@@ -146,6 +151,8 @@ final class ChatViewModel: ObservableObject {
             plexusRetrievedCount += mems.count
         case .memoryWritten:
             plexusWrittenCount += 1
+            Haptics.success()
+            NotificationManager.shared.scheduleMemoryStored(agentId: api.agentId)
         case .done:
             finalizeStream()
         case .error:
@@ -165,7 +172,7 @@ final class ChatViewModel: ObservableObject {
                 content: streamingText,
                 created_at: ISO8601DateFormatter().string(from: Date())
             ))
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            Haptics.success()
             // Quietly swap local-id messages for server-id ones so Retry/Branch/Delete work.
             Task { await syncMessagesFromServer(expecting: messages.count) }
         } else if streamingThinking.isEmpty && errorMessage == nil {
@@ -238,7 +245,7 @@ final class ChatViewModel: ObservableObject {
     // Delete a single message (optimistic; best-effort server delete).
     func delete(_ message: MessageRecord) async {
         messages.removeAll { $0.id == message.id }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        Haptics.tapMedium()
         if let cid = conversationId { await deleteServerMessage(cid: cid, mid: message.id) }
     }
 
@@ -252,7 +259,7 @@ final class ChatViewModel: ObservableObject {
             let resp: Resp = try await api.request(
                 "/api/conversations/\(cid)/branch", method: "POST",
                 body: Body(messageId: message.id, title: title))
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            Haptics.success()
             conversationId = resp.id
             await loadMessages(conversationId: resp.id)
         } catch {
@@ -274,5 +281,12 @@ final class ChatViewModel: ObservableObject {
         isStreaming = false
         retrievalStages = []
         retrievedMemories = []
+        Haptics.tapRigid()
+    }
+
+    func requestPermissionsIfNeeded() {
+        location.requestWhenInUse()
+        location.startUpdating()
+        NotificationManager.shared.requestAuthorization()
     }
 }
