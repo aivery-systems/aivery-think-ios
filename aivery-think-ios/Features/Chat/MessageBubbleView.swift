@@ -192,8 +192,8 @@ struct StreamingBubbleView: View {
                     // Keeping the glyph always in layout (toggling opacity) avoids reflow.
                     TimelineView(.periodic(from: .now, by: 0.6)) { ctx in
                         let on = Int(ctx.date.timeIntervalSinceReferenceDate / 0.6) % 2 == 0
-                        (Text(displayResponse)
-                            + Text("▍").foregroundStyle(Color.primary.opacity(on ? 0.5 : 0.0)))
+                        let caret = Text("▍").foregroundStyle(Color.primary.opacity(on ? 0.5 : 0.0))
+                        Text("\(Text(displayResponse))\(caret)")
                             .foregroundStyle(.primary)
                             .font(.body)
                             .frame(maxWidth: .infinity, alignment: .leading)
