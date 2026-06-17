@@ -9,6 +9,7 @@ final class ChatViewModel: ObservableObject {
     @Published var messages: [MessageRecord] = []
     @Published var streamingText = ""
     @Published var streamingThinking = ""
+    @Published var streamingNotes: [String] = []
     @Published var isStreaming = false
     @Published var retrievalStages: [RetrievalStageEvent] = []
     @Published var retrievedMemories: [RetrievedMemory] = []
@@ -106,6 +107,7 @@ final class ChatViewModel: ObservableObject {
         isStreaming = true
         streamingText = ""
         streamingThinking = ""
+        streamingNotes = []
         startSSE(request: req)
     }
 
@@ -129,8 +131,11 @@ final class ChatViewModel: ObservableObject {
                 self.isStreaming = false
                 switch code {
                 case 401: self.errorMessage = "Invalid API key (401). Check Settings."
-                case 403: self.errorMessage = "Forbidden (403). API key may lack required scopes."
-                default:  self.errorMessage = "HTTP \(code): \(message)\nCortex: \(self.api.cortexURL)/api/agent/chat"
+                case 403: self.errorMessage = "Forbidden (403). Your API key may lack required scopes."
+                case let c where c < 0:   // NSURLError transport failure
+                    ConnectionMonitor.shared.noteOffline()
+                    self.errorMessage = Self.friendlyTransportError(code: c, host: self.api.cortexURL.host ?? "the server")
+                default:  self.errorMessage = "Server error (HTTP \(code)).\n\(message)"
                 }
             }
         }
@@ -153,6 +158,11 @@ final class ChatViewModel: ObservableObject {
             plexusWrittenCount += 1
             Haptics.success()
             NotificationManager.shared.scheduleMemoryStored(agentId: api.agentId)
+        case .agentNote(let note):
+            let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty, !streamingNotes.contains(trimmed) {
+                streamingNotes.append(trimmed)
+            }
         case .done:
             finalizeStream()
         case .error:
@@ -166,33 +176,48 @@ final class ChatViewModel: ObservableObject {
         isStreaming = false
 
         if !streamingText.isEmpty {
+            // Embed the agent's action notes so the "memory saved" chip survives reload.
+            let content = AgentNotes.embed(streamingNotes, into: streamingText)
             messages.append(MessageRecord(
                 id: UUID().uuidString,
                 role: "assistant",
-                content: streamingText,
+                content: content,
                 created_at: ISO8601DateFormatter().string(from: Date())
             ))
             Haptics.success()
+            ConnectionMonitor.shared.noteOnline()   // a successful turn proves reachability
             // Quietly swap local-id messages for server-id ones so Retry/Branch/Delete work.
-            Task { await syncMessagesFromServer(expecting: messages.count) }
+            let turnNotes = streamingNotes
+            Task { await syncMessagesFromServer(expecting: messages.count, notes: turnNotes) }
         } else if streamingThinking.isEmpty && errorMessage == nil {
             errorMessage = "No response received. Check Cortex is running and your provider/model in Settings.\nCortex: \(api.cortexURL)"
         }
 
         streamingText = ""
         streamingThinking = ""
+        streamingNotes = []
     }
 
     // After a turn, Cortex logs both messages to Fabric asynchronously. Poll briefly
     // until the server has caught up, then replace local copies so every message
     // carries its real server id (needed for delete/branch/retry).
-    private func syncMessagesFromServer(expecting localCount: Int) async {
+    private func syncMessagesFromServer(expecting localCount: Int, notes: [String] = []) async {
         guard let cid = conversationId else { return }
         for attempt in 0..<4 {
             try? await Task.sleep(nanoseconds: attempt == 0 ? 700_000_000 : 1_000_000_000)
             guard !isStreaming, conversationId == cid else { return }  // a new turn started
-            guard let server: [MessageRecord] = try? await api.request("/api/conversations/\(cid)/messages") else { return }
+            guard var server: [MessageRecord] = try? await api.request("/api/conversations/\(cid)/messages") else { return }
             if server.count >= localCount {
+                // Server doesn't persist agent notes — re-attach them to the latest
+                // assistant message so the "memory saved" chip doesn't vanish on sync.
+                if !notes.isEmpty,
+                   let lastAssistantIdx = server.lastIndex(where: { !$0.isUser }) {
+                    let m = server[lastAssistantIdx]
+                    server[lastAssistantIdx] = MessageRecord(
+                        id: m.id, role: m.role,
+                        content: AgentNotes.embed(notes, into: m.content),
+                        created_at: m.created_at)
+                }
                 messages = server
                 return
             }
@@ -242,6 +267,26 @@ final class ChatViewModel: ObservableObject {
         ThinkText.split(content).response
     }
 
+    // Turn raw NSURLError codes into something a human can act on.
+    static func friendlyTransportError(code: Int, host: String) -> String {
+        switch code {
+        case NSURLErrorNotConnectedToInternet:
+            return "You're offline. Check your internet connection."
+        case NSURLErrorTimedOut:
+            return "\(host) took too long to respond. It may be waking up or under load — try again."
+        case NSURLErrorCannotConnectToHost:
+            return "Can't reach \(host). Make sure the API is running — and if you're on Tailscale, that both devices are on the tailnet."
+        case NSURLErrorCannotFindHost, NSURLErrorDNSLookupFailed:
+            return "Can't find \(host). Check the API Host in Settings."
+        case NSURLErrorNetworkConnectionLost:
+            return "The connection dropped mid-response. Tap send to retry."
+        case NSURLErrorSecureConnectionFailed, NSURLErrorServerCertificateUntrusted:
+            return "Secure connection to \(host) failed."
+        default:
+            return "Network error (\(code)) reaching \(host)."
+        }
+    }
+
     // Delete a single message (optimistic; best-effort server delete).
     func delete(_ message: MessageRecord) async {
         messages.removeAll { $0.id == message.id }
@@ -278,6 +323,7 @@ final class ChatViewModel: ObservableObject {
         conversationId = nil   // a fresh conversation is created on the next message
         streamingText = ""
         streamingThinking = ""
+        streamingNotes = []
         isStreaming = false
         retrievalStages = []
         retrievedMemories = []

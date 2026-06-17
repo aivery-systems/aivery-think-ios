@@ -17,6 +17,7 @@ private let chatPlaceholders = [
 struct ChatView: View {
     @ObservedObject var vm: ChatViewModel
     @Binding var isSignedIn: Bool
+    @StateObject private var conn = ConnectionMonitor.shared
     @State private var inputText = ""
     @State private var showScrollToBottom = false
     @FocusState private var inputFocused: Bool
@@ -124,6 +125,10 @@ struct ChatView: View {
                 // Floating input bar
                 inputBar
             }
+            .overlay(alignment: .top) {
+                if conn.status == .offline { offlineBanner }
+            }
+            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: conn.status)
             .navigationTitle("Think")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -247,6 +252,25 @@ struct ChatView: View {
         .padding(.horizontal, 12)
         .padding(.bottom, 8)
         .animation(.snappy(duration: 0.2), value: canSend)
+    }
+
+    private var offlineBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "wifi.slash").font(.footnote.weight(.semibold))
+            Text("Can't reach \(conn.host)")
+                .font(.footnote).lineLimit(1).truncationMode(.middle)
+            Spacer(minLength: 8)
+            Button("Retry") { Task { await conn.check() } }
+                .font(.footnote.weight(.semibold))
+        }
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.red.opacity(0.4), lineWidth: 1))
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 
     private var canSend: Bool {

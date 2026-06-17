@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @Binding var isSignedIn: Bool
     @StateObject private var settings = UserSettings.shared
+    @StateObject private var conn = ConnectionMonitor.shared
 
     @State private var agentId = APIClient.shared.agentId
     @State private var showSignOutConfirm = false
@@ -61,6 +62,35 @@ struct SettingsView: View {
                     }
                 }
 
+                // ── Connection ────────────────────────────────────────────
+                Section {
+                    Button {
+                        Task { await conn.check() }
+                    } label: {
+                        HStack {
+                            icon("antenna.radiowaves.left.and.right", tint: statusTint)
+                            Text("Connection").foregroundStyle(.primary)
+                            Spacer()
+                            HStack(spacing: 6) {
+                                Circle().fill(statusTint).frame(width: 8, height: 8)
+                                Text(conn.status.label).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    HStack {
+                        icon("server.rack", tint: .gray)
+                        Text("Host")
+                        Spacer()
+                        Text(conn.host)
+                            .foregroundStyle(.secondary)
+                            .font(.caption.monospaced())
+                            .lineLimit(1)
+                            .truncationMode(.head)
+                    }
+                } footer: {
+                    Text("Tap to re-test. Checks the memories API for your current host.")
+                }
+
                 #if DEBUG
                 // ── Developer (Debug builds only) ─────────────────────────
                 Section {
@@ -107,6 +137,7 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .task { await conn.check() }
             .confirmationDialog("Sign out?", isPresented: $showSignOutConfirm) {
                 Button("Sign Out", role: .destructive) {
                     APIClient.shared.clearApiKey()
@@ -121,11 +152,21 @@ struct SettingsView: View {
 
     // MARK: - Helpers
 
+    private var statusTint: Color {
+        switch conn.status {
+        case .online:             return .green
+        case .checking, .unknown: return .yellow
+        case .unauthorized:       return .orange
+        case .offline:            return .red
+        }
+    }
+
     #if DEBUG
     private func applyHost() {
         APIClient.shared.setDevHost(devHost)
         devHost = APIClient.storedDevHost   // reflect normalized/cleared value
         endpointTick += 1                   // refresh the endpoint readout
+        Task { await conn.check() }         // re-test against the new host
     }
     #endif
 
