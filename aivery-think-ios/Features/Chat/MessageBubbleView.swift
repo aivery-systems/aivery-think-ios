@@ -79,7 +79,10 @@ struct MessageBubbleView: View {
                     .background(bubbleUserColor, in: ChatBubbleShape(isUser: true, hasTail: isLastInGroup))
                     .shadow(color: bubbleUserColor.opacity(0.28), radius: 8, x: 0, y: 3)
             } else {
-                markdownOrPlain(text: strippedContent(message.content), streaming: isStreaming)
+                AgentMessageContent(
+                    segments: AgentActions.segments(from: strippedContent(message.content)),
+                    streaming: isStreaming
+                )
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(.thinMaterial, in: ChatBubbleShape(isUser: false, hasTail: isLastInGroup))
@@ -105,17 +108,6 @@ struct MessageBubbleView: View {
         }
         if let onDelete {
             Button(role: .destructive) { onDelete() } label: { Label("Delete", systemImage: "trash") }
-        }
-    }
-
-    @ViewBuilder
-    private func markdownOrPlain(text: String, streaming: Bool) -> some View {
-        if streaming {
-            Text(text)
-                .foregroundStyle(.primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            MarkdownContentView(text: text)
         }
     }
 
@@ -161,7 +153,7 @@ struct StreamingBubbleView: View {
         // never shows raw tags, and the disclosure holds whichever reasoning we have.
         let parts = ThinkText.split(text)
         let displayThinking = thinking.isEmpty ? parts.thinking : thinking
-        let displayResponse = parts.response
+        let responseSegments = AgentActions.segments(from: parts.response)
 
         // Mirror MessageBubbleView's layout: a leading content column with a trailing
         // spacer so the thinking block is bubble-width (not full width) and sits the
@@ -187,20 +179,12 @@ struct StreamingBubbleView: View {
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
                 }
 
-                if !displayResponse.isEmpty {
-                    // Blinking caret trails the streamed text like a terminal cursor.
-                    // Keeping the glyph always in layout (toggling opacity) avoids reflow.
-                    TimelineView(.periodic(from: .now, by: 0.6)) { ctx in
-                        let on = Int(ctx.date.timeIntervalSinceReferenceDate / 0.6) % 2 == 0
-                        let caret = Text("▍").foregroundStyle(Color.primary.opacity(on ? 0.5 : 0.0))
-                        Text("\(Text(displayResponse))\(caret)")
-                            .foregroundStyle(.primary)
-                            .font(.body)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(.thinMaterial, in: ChatBubbleShape(isUser: false, hasTail: true))
+                if !responseSegments.isEmpty {
+                    // Prose + inline agent-action lines; caret trails the last prose segment.
+                    AgentMessageContent(segments: responseSegments, streaming: true)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(.thinMaterial, in: ChatBubbleShape(isUser: false, hasTail: true))
                 }
 
                 // Live agent action notes ("Stored a memory about …")

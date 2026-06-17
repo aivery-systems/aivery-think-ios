@@ -269,7 +269,9 @@ final class ChatViewModel: ObservableObject {
     }
 
     private func stripThink(_ content: String) -> String {
-        ThinkText.split(content).response
+        // Strip reasoning AND agent-action tags (note/remember) so prior turns fed back
+        // to the model never contain its own control tags.
+        AgentActions.plainText(from: ThinkText.split(content).response)
     }
 
     // Turn raw NSURLError codes into something a human can act on.

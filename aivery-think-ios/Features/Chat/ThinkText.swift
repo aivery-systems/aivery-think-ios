@@ -64,35 +64,23 @@ enum ThinkText {
             response = response.replacingOccurrences(of: tag, with: "")
         }
 
-        // Strip agent control tags some models emit in the reply instead of the
-        // reasoning (<remember .../>, <validate .../>, <get-more-context .../>).
-        // Done before markdown rendering, which would otherwise mangle them.
+        // Strip the control tags we DON'T surface to the user (<validate …/>,
+        // <get-more-context …/>). <remember …/> and <note>…</note> are intentionally
+        // PRESERVED here so AgentActions can render them as inline action lines — it also
+        // handles their orphaned/streaming remnants. Done before markdown rendering.
         response = response.replacingOccurrences(
-            of: #"<\s*/?\s*(remember|validate|get-more-context)\b[^>]*/?>"#,
+            of: #"<\s*/?\s*(validate|get-more-context)\b[^>]*/?>"#,
             with: "",
             options: [.regularExpression, .caseInsensitive]
         )
 
-        // Streaming splits a control tag across SSE chunks; upstream strips the opening
-        // `<remember`/`<validate` token but the attribute remnant leaks (e.g.
-        // `content="…" type="episodic" confidence="0.95" />`). Remove an orphaned run of
-        // attribute pairs ending in a self-closing `/>`.
-        response = response.replacingOccurrences(
-            of: #"(?:\s*[A-Za-z_][\w-]*\s*=\s*"[^"]*")+\s*/>"#,
-            with: "",
-            options: [.regularExpression]
-        )
-
-        // While streaming, a control tag may still be arriving (unclosed) at the end —
-        // trim it so the half-typed tag never flashes in the reply. Covers both the
-        // `<remember …` form and an orphaned `content="…` attribute remnant.
-        for pattern in [
-            #"<\s*/?\s*(remember|validate|get-more-context)\b[^>]*$"#,
-            #"(?:\s*[A-Za-z_][\w-]*\s*=\s*"[^"]*")+\s*[A-Za-z_][\w-]*\s*=\s*"[^"]*$"#,
-        ] {
-            if let partial = response.range(of: pattern, options: [.regularExpression, .caseInsensitive]) {
-                response = String(response[response.startIndex..<partial.lowerBound])
-            }
+        // A validate/get-more-context tag still arriving (unclosed) at the very end while
+        // streaming — trim it so the half-typed tag never flashes in the reply.
+        if let partial = response.range(
+            of: #"<\s*/?\s*(validate|get-more-context)\b[^>]*$"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) {
+            response = String(response[response.startIndex..<partial.lowerBound])
         }
 
         return (
