@@ -11,6 +11,8 @@ import SwiftUI
 struct aivery_think_iosApp: App {
     @State private var isSignedIn = false
     @StateObject private var settings = UserSettings.shared
+    // Touch at startup so the UNUserNotificationCenterDelegate is registered before any notification fires.
+    private let _notif = NotificationManager.shared
 
     var body: some Scene {
         WindowGroup {

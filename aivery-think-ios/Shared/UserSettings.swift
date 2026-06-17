@@ -4,6 +4,7 @@ import Combine
 final class UserSettings: ObservableObject {
     @AppStorage("agentId") var agentId: String = "default"
     @AppStorage("showThinking") var showThinking: Bool = true
+    @AppStorage("enableReasoning") var enableReasoning: Bool = false
     @AppStorage("colorScheme") var colorScheme: String = "system"
 
     static let shared = UserSettings()

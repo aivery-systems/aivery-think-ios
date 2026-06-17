@@ -7,6 +7,7 @@ struct PlexusView: View {
 
     @StateObject private var sim = PlexusSimulation()
     @State private var isActive = false
+    @State private var deactivateTask: Task<Void, Never>?
 
     var body: some View {
         Group {
@@ -42,8 +43,12 @@ struct PlexusView: View {
 
     private func activate() {
         isActive = true
-        // Drop back to 8fps once ripples and sparkles finish (~2.5s window)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+        // Cancel any pending deactivation before scheduling a new one — prevents
+        // multiple asyncAfter closures stacking up and holding sim alive redundantly.
+        deactivateTask?.cancel()
+        deactivateTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2.5))
+            guard !Task.isCancelled else { return }
             if !sim.isActive { isActive = false }
         }
     }

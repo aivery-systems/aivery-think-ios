@@ -46,6 +46,17 @@ struct MessageBubbleView: View {
                 }
 
                 bubble
+
+                // Agent action notes ("Stored a memory about …")
+                if !message.isUser {
+                    let notes = AgentNotes.extract(from: message.content).notes
+                    if !notes.isEmpty {
+                        VStack(alignment: .leading, spacing: 3) {
+                            ForEach(notes, id: \.self) { AgentNoteChip(text: $0) }
+                        }
+                        .padding(.top, 1)
+                    }
+                }
             }
 
             if !message.isUser { Spacer(minLength: 56) }
@@ -109,11 +120,32 @@ struct MessageBubbleView: View {
     }
 
     private func extractThinking(from content: String) -> String? {
-        ThinkText.split(content).thinking.isEmpty ? nil : ThinkText.split(content).thinking
+        let clean = AgentNotes.extract(from: content).content
+        let thinking = ThinkText.split(clean).thinking
+        return thinking.isEmpty ? nil : thinking
     }
 
     private func strippedContent(_ content: String) -> String {
-        ThinkText.split(content).response
+        ThinkText.split(AgentNotes.extract(from: content).content).response
+    }
+}
+
+/// Small lightbulb chip surfacing an agent action ("Stored a memory about …").
+/// Mirrors the web client's AgentNoteChip (aivery-think/.../chat/chat-history.tsx).
+struct AgentNoteChip: View {
+    let text: String
+    private var display: String { text.count > 120 ? String(text.prefix(120)).trimmingCharacters(in: .whitespaces) + "…" : text }
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "lightbulb.fill")
+                .font(.system(size: 9))
+                .foregroundStyle(Color.accentColor.opacity(0.6))
+            Text(display)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -121,6 +153,7 @@ struct MessageBubbleView: View {
 struct StreamingBubbleView: View {
     let text: String
     let thinking: String
+    var notes: [String] = []
 
     var body: some View {
         // Some models stream reasoning inline as <think>…</think> within the chunk
@@ -168,6 +201,15 @@ struct StreamingBubbleView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(.thinMaterial, in: ChatBubbleShape(isUser: false, hasTail: true))
+                }
+
+                // Live agent action notes ("Stored a memory about …")
+                if !notes.isEmpty {
+                    VStack(alignment: .leading, spacing: 3) {
+                        ForEach(notes, id: \.self) { AgentNoteChip(text: $0) }
+                    }
+                    .padding(.top, 1)
+                    .transition(.opacity)
                 }
             }
             Spacer(minLength: 56)

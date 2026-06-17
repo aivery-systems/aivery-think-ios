@@ -68,13 +68,14 @@ struct ChatView: View {
 
                             // Live streaming bubble
                             if vm.isStreaming {
-                                if vm.streamingText.isEmpty && vm.streamingThinking.isEmpty {
+                                if vm.streamingText.isEmpty && vm.streamingThinking.isEmpty && vm.streamingNotes.isEmpty {
                                     ThinkingIndicatorView()
                                         .id("thinking-indicator")
                                 } else {
                                     StreamingBubbleView(
                                         text: vm.streamingText,
-                                        thinking: vm.streamingThinking
+                                        thinking: vm.streamingThinking,
+                                        notes: vm.streamingNotes
                                     )
                                     .id("streaming-bubble")
                                 }

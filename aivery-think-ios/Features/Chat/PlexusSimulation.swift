@@ -2,8 +2,9 @@ import SwiftUI
 import Foundation
 import Combine
 
-private let PARTICLE_COUNT = 100
+private let PARTICLE_COUNT = 80   // fewer particles → fewer O(n²) pairs per frame
 private let MAX_DIST: Double = 150
+private let MAX_SPARKLES = 60     // each drawLayer+shadow is an offscreen GPU buffer; cap tightly
 
 // MARK: - Data types
 
@@ -145,8 +146,11 @@ final class PlexusSimulation: ObservableObject {
             (220/255, 210/255, 250/255),
             (230/255, 235/255, 1.0),
         ]
-        for s in 0..<42 {
-            let angle = Double(s) / 42.0 * .pi * 2 + Double.random(in: 0...0.4)
+        let count = 20  // was 42; each sparkle = drawLayer+shadow offscreen buffer every frame
+        let available = max(0, MAX_SPARKLES - sparkles.count)
+        let toSpawn = min(count, available)
+        for s in 0..<toSpawn {
+            let angle = Double(s) / Double(count) * .pi * 2 + Double.random(in: 0...0.4)
             sparkles.append(PlexusSparkle(
                 ox: ripple.x, oy: ripple.y,
                 angle: angle,

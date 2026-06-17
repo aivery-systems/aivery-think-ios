@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 struct HistoryMessage: Codable {
     let role: String
@@ -20,18 +21,27 @@ struct CortexChatRequest: Encodable {
     let provider_url: String?
     let api_key: String?
     let model: String?
+    let image: String?      // base64-encoded JPEG
+    let latitude: Double?
+    let longitude: Double?
 
     init(message: String, agentId: String, think: Bool = false,
          conversationId: String? = nil,
          history: [HistoryMessage] = [],
          systemPrompt: String? = nil, chatStyle: String? = nil,
-         provider: ProviderSettings? = nil) {
+         provider: ProviderSettings? = nil,
+         image: UIImage? = nil,
+         latitude: Double? = nil,
+         longitude: Double? = nil) {
         self.message = message
         self.agent_id = agentId
         self.think = think
         self.conversation_id = conversationId
         self.history = history.isEmpty ? nil : history
         self.user_system_prompt = (systemPrompt?.isEmpty == false) ? systemPrompt : nil
+        self.image = image.flatMap { Self.encodeImage($0) }
+        self.latitude = latitude
+        self.longitude = longitude
         self.chat_style = (chatStyle?.isEmpty == false) ? chatStyle : nil
         if let p = provider, p.enabled, !p.baseUrl.isEmpty {
             self.provider_type = p.type
@@ -44,6 +54,22 @@ struct CortexChatRequest: Encodable {
             self.api_key = nil
             self.model = nil
         }
+    }
+
+    // Scale large images down before base64-encoding to cap request body size.
+    // A 12MP photo is ~48MB raw; scaled to 1024px it's ~150KB JPEG ≈ 200KB base64.
+    private static func encodeImage(_ image: UIImage) -> String? {
+        let maxDim: CGFloat = 1024
+        let size = image.size
+        let scale = size.width > size.height
+            ? min(maxDim / size.width, 1)
+            : min(maxDim / size.height, 1)
+        let target = scale < 1
+            ? CGSize(width: size.width * scale, height: size.height * scale)
+            : size
+        let renderer = UIGraphicsImageRenderer(size: target)
+        let scaled = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: target)) }
+        return scaled.jpegData(compressionQuality: 0.8)?.base64EncodedString()
     }
 }
 
@@ -59,6 +85,7 @@ enum SSEEvent {
     case retrievalStage(RetrievalStageEvent)
     case memoryResult([RetrievedMemory])
     case memoryWritten
+    case agentNote(String)
     case done
     case error
 }

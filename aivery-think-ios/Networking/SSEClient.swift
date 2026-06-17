@@ -87,6 +87,10 @@ final class SSEClient: NSObject {
         case "memory_written":
             onEvent?(.memoryWritten)
 
+        case "agent_note":
+            let note = (try? JSONDecoder().decode(String.self, from: Data(data.utf8))) ?? data
+            onEvent?(.agentNote(note))
+
         case "done":
             onEvent?(.done)
 
@@ -140,18 +144,20 @@ extension SSEClient: URLSessionDataDelegate {
         let nsErr = error as NSError?
         let isRealError = nsErr != nil && !cancelled && nsErr!.code != NSURLErrorCancelled
 
+        // Break the session→delegate retain cycle. Do NOT nil `urlSession` here — this
+        // delegate callback fires on the URLSession's background queue while connect()
+        // runs on the main thread. Setting urlSession = nil from both sides races:
+        // the background nil can overwrite the newly-assigned session from connect(),
+        // leaking that session permanently. connect() already invalidates the old
+        // session before creating a new one, so this nil is both racy and redundant.
+        session.finishTasksAndInvalidate()
+
         DispatchQueue.main.async { [weak self] in
             if isRealError {
-                // Surface connection errors as HTTP-style error so ChatViewModel shows them
                 self?.onHTTPError?(nsErr!.code, nsErr!.localizedDescription)
             } else {
                 self?.onComplete?()
             }
         }
-
-        // Always release the session (and its strong ref to this delegate) once the
-        // stream ends — otherwise every message leaks a URLSession until OOM.
-        session.finishTasksAndInvalidate()
-        urlSession = nil
     }
 }
