@@ -45,6 +45,11 @@ struct MessageBubbleView: View {
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
                 }
 
+                // Agent actions (note / remember) — between the thoughts and the reply bubble.
+                if !message.isUser, !agentActions.isEmpty {
+                    AgentActionsBlock(actions: agentActions)
+                }
+
                 bubble
 
                 // Agent action notes ("Stored a memory about …")
@@ -79,10 +84,7 @@ struct MessageBubbleView: View {
                     .background(bubbleUserColor, in: ChatBubbleShape(isUser: true, hasTail: isLastInGroup))
                     .shadow(color: bubbleUserColor.opacity(0.28), radius: 8, x: 0, y: 3)
             } else {
-                AgentMessageContent(
-                    segments: AgentActions.segments(from: strippedContent(message.content)),
-                    streaming: isStreaming
-                )
+                AgentProseView(text: prose, streaming: isStreaming)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(.thinMaterial, in: ChatBubbleShape(isUser: false, hasTail: isLastInGroup))
@@ -120,6 +122,14 @@ struct MessageBubbleView: View {
     private func strippedContent(_ content: String) -> String {
         ThinkText.split(AgentNotes.extract(from: content).content).response
     }
+
+    // Agent actions (note/remember) shown above the bubble; prose goes inside it.
+    private var agentActions: [AgentAction] {
+        message.isUser ? [] : AgentActions.actions(from: strippedContent(message.content))
+    }
+    private var prose: String {
+        AgentActions.plainText(from: strippedContent(message.content))
+    }
 }
 
 /// Small lightbulb chip surfacing an agent action ("Stored a memory about …").
@@ -153,7 +163,8 @@ struct StreamingBubbleView: View {
         // never shows raw tags, and the disclosure holds whichever reasoning we have.
         let parts = ThinkText.split(text)
         let displayThinking = thinking.isEmpty ? parts.thinking : thinking
-        let responseSegments = AgentActions.segments(from: parts.response)
+        let actions = AgentActions.actions(from: parts.response)
+        let prose = AgentActions.plainText(from: parts.response)
 
         // Mirror MessageBubbleView's layout: a leading content column with a trailing
         // spacer so the thinking block is bubble-width (not full width) and sits the
@@ -179,9 +190,13 @@ struct StreamingBubbleView: View {
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
                 }
 
-                if !responseSegments.isEmpty {
-                    // Prose + inline agent-action lines; caret trails the last prose segment.
-                    AgentMessageContent(segments: responseSegments, streaming: true)
+                // Agent actions between the thoughts and the reply bubble.
+                if !actions.isEmpty {
+                    AgentActionsBlock(actions: actions)
+                }
+
+                if !prose.isEmpty {
+                    AgentProseView(text: prose, streaming: true)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .background(.thinMaterial, in: ChatBubbleShape(isUser: false, hasTail: true))

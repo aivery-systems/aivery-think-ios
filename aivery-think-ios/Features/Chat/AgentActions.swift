@@ -58,12 +58,18 @@ enum AgentActions {
         return out
     }
 
-    /// Prose only (actions and control tags removed) — for chat history sent back upstream.
+    /// Prose only (actions and control tags removed) — for chat history sent back upstream
+    /// and for the reply bubble itself.
     static func plainText(from response: String) -> String {
         segments(from: response)
             .compactMap { if case .text(let t) = $0 { return t } else { return nil } }
             .joined(separator: "\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Just the agent actions, in order — rendered between the thoughts and the bubble.
+    static func actions(from response: String) -> [AgentAction] {
+        segments(from: response).compactMap { if case .action(let a) = $0 { return a } else { return nil } }
     }
 
     // MARK: - Internals
@@ -157,32 +163,33 @@ struct AgentActionLineView: View {
     }
 }
 
-/// Renders an assistant message as ordered prose + action lines. Prose is Markdown when
-/// finished; while streaming it's plain text, and the final prose segment carries the caret.
-struct AgentMessageContent: View {
-    let segments: [MessageSegment]
-    var streaming: Bool = false
-
-    private var lastTextIndex: Int? {
-        segments.lastIndex { if case .text = $0 { return true } else { return false } }
-    }
+/// The agent's actions stacked as terminal-style lines — shown between the Thought
+/// disclosure and the reply bubble, outside the bubble's glass.
+struct AgentActionsBlock: View {
+    let actions: [AgentAction]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            ForEach(Array(segments.enumerated()), id: \.offset) { idx, segment in
-                switch segment {
-                case .text(let text):
-                    if streaming {
-                        StreamingTextView(text: text, showCaret: idx == lastTextIndex)
-                    } else {
-                        MarkdownContentView(text: text)
-                    }
-                case .action(let action):
-                    AgentActionLineView(action: action)
-                }
+        VStack(alignment: .leading, spacing: 3) {
+            ForEach(Array(actions.enumerated()), id: \.offset) { _, action in
+                AgentActionLineView(action: action)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, 2)
+    }
+}
+
+/// The reply prose — Markdown when finished, plain text with a trailing caret while streaming.
+struct AgentProseView: View {
+    let text: String
+    var streaming: Bool = false
+
+    var body: some View {
+        if streaming {
+            StreamingTextView(text: text, showCaret: true)
+        } else {
+            MarkdownContentView(text: text)
+        }
     }
 }
 
