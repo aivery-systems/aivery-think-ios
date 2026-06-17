@@ -108,6 +108,7 @@ final class ChatViewModel: ObservableObject {
         streamingText = ""
         streamingThinking = ""
         streamingNotes = []
+        LiveActivityManager.shared.start(agentId: api.agentId)
         startSSE(request: req)
     }
 
@@ -129,6 +130,7 @@ final class ChatViewModel: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.isStreaming = false
+                LiveActivityManager.shared.end()
                 switch code {
                 case 401: self.errorMessage = "Invalid API key (401). Check Settings."
                 case 403: self.errorMessage = "Forbidden (403). Your API key may lack required scopes."
@@ -145,6 +147,7 @@ final class ChatViewModel: ObservableObject {
     private func handle(event: SSEEvent) {
         switch event {
         case .chunk(let text):
+            if streamingText.isEmpty { LiveActivityManager.shared.update(phase: "Responding") }
             streamingText += text
         case .thinkChunk(let text):
             streamingThinking += text
@@ -154,6 +157,7 @@ final class ChatViewModel: ObservableObject {
         case .memoryResult(let mems):
             retrievedMemories = mems
             plexusRetrievedCount += mems.count
+            LiveActivityManager.shared.update(phase: "Recalling", detail: "\(mems.count) " + (mems.count == 1 ? "memory" : "memories"))
         case .memoryWritten:
             plexusWrittenCount += 1
             Haptics.success()
@@ -174,6 +178,7 @@ final class ChatViewModel: ObservableObject {
     private func finalizeStream() {
         guard isStreaming else { return }
         isStreaming = false
+        LiveActivityManager.shared.end()
 
         if !streamingText.isEmpty {
             // Embed the agent's action notes so the "memory saved" chip survives reload.
