@@ -16,7 +16,7 @@ struct RememberIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard APIClient.shared.restoreApiKey() else {
+        guard await APIClient.shared.restoreApiKey() else {
             return .result(dialog: "Open Aivery and add your API key first.")
         }
         let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
