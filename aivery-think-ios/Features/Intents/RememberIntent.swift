@@ -28,8 +28,10 @@ struct RememberIntent: AppIntent {
             return .result(dialog: "Saved to Aivery.")
         } catch APIError.unauthorized {
             return .result(dialog: "Your API key was rejected — check it in Aivery's Settings.")
+        } catch let APIError.serverError(code) {
+            return .result(dialog: "Aivery's server returned an error (\(code)).")
         } catch {
-            return .result(dialog: "Couldn't reach Aivery to save that. Try again.")
+            return .result(dialog: "Couldn't reach Aivery: \(error.localizedDescription)")
         }
     }
 }

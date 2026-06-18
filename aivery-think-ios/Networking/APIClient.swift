@@ -239,6 +239,7 @@ final class APIClient {
 
     // Direct capture: store a memory via the Fabric protocol write endpoint
     // (embeds + persists server-side). Used by the Remember intent / share sheet.
+    // Short timeout so the Siri intent fails fast instead of hanging past its budget.
     func writeMemory(content: String, type: String = "semantic", source: String) async throws {
         struct Body: Encodable {
             let content: String
@@ -248,8 +249,21 @@ final class APIClient {
             let confidence: Double
         }
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        let body = Body(content: trimmed, agent_id: agentId, type: type, source: source, confidence: 1.0)
-        try await requestEmpty("/memory/write", method: "POST", body: body)
+        var req = URLRequest(url: baseURL.appendingPathComponent("/memory/write"), timeoutInterval: 12)
+        req.httpMethod = "POST"
+        for (k, v) in commonHeaders() { req.setValue(v, forHTTPHeaderField: k) }
+        req.httpBody = try JSONEncoder().encode(
+            Body(content: trimmed, agent_id: agentId, type: type, source: source, confidence: 1.0))
+
+        let (_, response) = try await session.data(for: req)
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.networkError(URLError(.badServerResponse))
+        }
+        switch http.statusCode {
+        case 200...299: return
+        case 401:       throw APIError.unauthorized
+        default:        throw APIError.serverError(http.statusCode)
+        }
     }
 
     private struct RateLimitBody: Decodable {
