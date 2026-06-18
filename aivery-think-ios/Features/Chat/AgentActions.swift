@@ -165,6 +165,7 @@ struct AgentActionLineView: View {
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(.primary.opacity(0.85))
                 .lineLimit(4)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 7)
