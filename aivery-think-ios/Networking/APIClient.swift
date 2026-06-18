@@ -120,6 +120,7 @@ final class APIClient {
         baseURL = URL(string: "https://api.aivery.systems")!
         cortexURL = URL(string: "https://cortex.aivery.systems")!
         #endif
+        syncSharedCredentials()
     }
 
     /// Update the dev host override and re-point base/cortex immediately (Debug only).
@@ -131,17 +132,30 @@ final class APIClient {
         baseURL = urls.base
         cortexURL = urls.cortex
         print("🌐 APIClient reconfigured base=\(baseURL)  cortex=\(cortexURL)")
+        syncSharedCredentials()
         #endif
+    }
+
+    // Mirror credentials into the shared App Group so the Share extension can reach
+    // /memory/write with the same key, agent, and host as the app.
+    static let sharedAppGroup = "group.matsoukis.aivery-think-ios"
+    func syncSharedCredentials() {
+        guard let d = UserDefaults(suiteName: APIClient.sharedAppGroup) else { return }
+        d.set(apiKey, forKey: "apiKey")
+        d.set(agentId, forKey: "agentId")
+        d.set(baseURL.absoluteString, forKey: "fabricBaseURL")
     }
 
     func setApiKey(_ key: String) {
         apiKey = key
         KeychainHelper.save(key: "apiKey", value: key)
+        syncSharedCredentials()
     }
 
     func clearApiKey() {
         apiKey = nil
         KeychainHelper.delete(key: "apiKey")
+        syncSharedCredentials()
     }
 
     func restoreApiKey() -> Bool {
@@ -150,6 +164,7 @@ final class APIClient {
         if let savedAgentId = KeychainHelper.load(key: "agentId") {
             agentId = savedAgentId
         }
+        syncSharedCredentials()
         return true
     }
 

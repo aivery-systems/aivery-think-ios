@@ -10,6 +10,7 @@
 		284CEA1E2FE22BC100AA0A99 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 284CEA1D2FE22BC100AA0A99 /* WidgetKit.framework */; };
 		284CEA202FE22BC100AA0A99 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 284CEA1F2FE22BC100AA0A99 /* SwiftUI.framework */; };
 		284CEA2D2FE22BC200AA0A99 /* ThinkWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 284CEA1B2FE22BC100AA0A99 /* ThinkWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		284CEA492FE37DDC00AA0A99 /* ShareToAivery.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 284CEA3F2FE37DDC00AA0A99 /* ShareToAivery.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,6 +35,13 @@
 			remoteGlobalIDString = 284CEA1A2FE22BC100AA0A99;
 			remoteInfo = ThinkWidgetsExtension;
 		};
+		284CEA472FE37DDC00AA0A99 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 282252502FDC7FE500B8D961 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 284CEA3E2FE37DDC00AA0A99;
+			remoteInfo = ShareToAivery;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -44,6 +52,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				284CEA2D2FE22BC200AA0A99 /* ThinkWidgetsExtension.appex in Embed Foundation Extensions */,
+				284CEA492FE37DDC00AA0A99 /* ShareToAivery.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -57,6 +66,7 @@
 		284CEA1B2FE22BC100AA0A99 /* ThinkWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ThinkWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		284CEA1D2FE22BC100AA0A99 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		284CEA1F2FE22BC100AA0A99 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		284CEA3F2FE37DDC00AA0A99 /* ShareToAivery.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareToAivery.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -73,6 +83,13 @@
 				Shared/ThinkingActivityAttributes.swift,
 			);
 			target = 284CEA1A2FE22BC100AA0A99 /* ThinkWidgetsExtension */;
+		};
+		284CEA4A2FE37DDC00AA0A99 /* Exceptions for "ShareToAivery" folder in "ShareToAivery" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 284CEA3E2FE37DDC00AA0A99 /* ShareToAivery */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -101,6 +118,14 @@
 				284CEA2E2FE22BC200AA0A99 /* Exceptions for "ThinkWidgets" folder in "ThinkWidgetsExtension" target */,
 			);
 			path = ThinkWidgets;
+			sourceTree = "<group>";
+		};
+		284CEA402FE37DDC00AA0A99 /* ShareToAivery */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				284CEA4A2FE37DDC00AA0A99 /* Exceptions for "ShareToAivery" folder in "ShareToAivery" target */,
+			);
+			path = ShareToAivery;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -136,6 +161,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		284CEA3C2FE37DDC00AA0A99 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -146,6 +178,7 @@
 				282252682FDC7FE700B8D961 /* aivery-think-iosTests */,
 				282252722FDC7FE700B8D961 /* aivery-think-iosUITests */,
 				284CEA212FE22BC100AA0A99 /* ThinkWidgets */,
+				284CEA402FE37DDC00AA0A99 /* ShareToAivery */,
 				284CEA1C2FE22BC100AA0A99 /* Frameworks */,
 				282252592FDC7FE500B8D961 /* Products */,
 			);
@@ -158,6 +191,7 @@
 				282252652FDC7FE700B8D961 /* aivery-think-iosTests.xctest */,
 				2822526F2FDC7FE700B8D961 /* aivery-think-iosUITests.xctest */,
 				284CEA1B2FE22BC100AA0A99 /* ThinkWidgetsExtension.appex */,
+				284CEA3F2FE37DDC00AA0A99 /* ShareToAivery.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -187,6 +221,7 @@
 			);
 			dependencies = (
 				284CEA2C2FE22BC200AA0A99 /* PBXTargetDependency */,
+				284CEA482FE37DDC00AA0A99 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				2822525A2FDC7FE500B8D961 /* aivery-think-ios */,
@@ -266,6 +301,28 @@
 			productReference = 284CEA1B2FE22BC100AA0A99 /* ThinkWidgetsExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		284CEA3E2FE37DDC00AA0A99 /* ShareToAivery */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 284CEA4B2FE37DDC00AA0A99 /* Build configuration list for PBXNativeTarget "ShareToAivery" */;
+			buildPhases = (
+				284CEA3B2FE37DDC00AA0A99 /* Sources */,
+				284CEA3C2FE37DDC00AA0A99 /* Frameworks */,
+				284CEA3D2FE37DDC00AA0A99 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				284CEA402FE37DDC00AA0A99 /* ShareToAivery */,
+			);
+			name = ShareToAivery;
+			packageProductDependencies = (
+			);
+			productName = ShareToAivery;
+			productReference = 284CEA3F2FE37DDC00AA0A99 /* ShareToAivery.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -290,6 +347,9 @@
 					284CEA1A2FE22BC100AA0A99 = {
 						CreatedOnToolsVersion = 26.2;
 					};
+					284CEA3E2FE37DDC00AA0A99 = {
+						CreatedOnToolsVersion = 26.2;
+					};
 				};
 			};
 			buildConfigurationList = 282252532FDC7FE500B8D961 /* Build configuration list for PBXProject "aivery-think-ios" */;
@@ -310,6 +370,7 @@
 				282252642FDC7FE700B8D961 /* aivery-think-iosTests */,
 				2822526E2FDC7FE700B8D961 /* aivery-think-iosUITests */,
 				284CEA1A2FE22BC100AA0A99 /* ThinkWidgetsExtension */,
+				284CEA3E2FE37DDC00AA0A99 /* ShareToAivery */,
 			);
 		};
 /* End PBXProject section */
@@ -337,6 +398,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		284CEA192FE22BC100AA0A99 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		284CEA3D2FE37DDC00AA0A99 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -374,6 +442,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		284CEA3B2FE37DDC00AA0A99 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -391,6 +466,11 @@
 			isa = PBXTargetDependency;
 			target = 284CEA1A2FE22BC100AA0A99 /* ThinkWidgetsExtension */;
 			targetProxy = 284CEA2B2FE22BC200AA0A99 /* PBXContainerItemProxy */;
+		};
+		284CEA482FE37DDC00AA0A99 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 284CEA3E2FE37DDC00AA0A99 /* ShareToAivery */;
+			targetProxy = 284CEA472FE37DDC00AA0A99 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -521,6 +601,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "aivery-think-ios/aivery-think-ios.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 442ZGJTQRG;
@@ -555,6 +636,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "aivery-think-ios/aivery-think-ios.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 442ZGJTQRG;
@@ -728,6 +810,64 @@
 			};
 			name = Release;
 		};
+		284CEA4C2FE37DDC00AA0A99 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ShareToAivery/ShareToAivery.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 442ZGJTQRG;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShareToAivery/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ShareToAivery;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "matsoukis.aivery-think-ios.ShareToAivery";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		284CEA4D2FE37DDC00AA0A99 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ShareToAivery/ShareToAivery.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 442ZGJTQRG;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShareToAivery/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ShareToAivery;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "matsoukis.aivery-think-ios.ShareToAivery";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -772,6 +912,15 @@
 			buildConfigurations = (
 				284CEA302FE22BC200AA0A99 /* Debug */,
 				284CEA312FE22BC200AA0A99 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		284CEA4B2FE37DDC00AA0A99 /* Build configuration list for PBXNativeTarget "ShareToAivery" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				284CEA4C2FE37DDC00AA0A99 /* Debug */,
+				284CEA4D2FE37DDC00AA0A99 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
