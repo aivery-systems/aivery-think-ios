@@ -40,8 +40,11 @@ struct AiveryShortcuts: AppShortcutsProvider {
             intent: RememberIntent(),
             phrases: [
                 "Remember this in \(.applicationName)",
+                "Remember in \(.applicationName)",
                 "Add a memory to \(.applicationName)",
+                "Add a memory in \(.applicationName)",
                 "Save a memory in \(.applicationName)",
+                "Note this in \(.applicationName)",
             ],
             shortTitle: "Remember",
             systemImageName: "brain.head.profile"
