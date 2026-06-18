@@ -7,6 +7,14 @@ enum AgentActionKind {
 
     var verb: String { self == .remember ? "remember" : "note" }
     var symbol: String { self == .remember ? "brain.head.profile" : "note.text" }
+
+    /// Distinct brand tint per kind so notes don't disappear in all-gray.
+    var tint: Color {
+        switch self {
+        case .remember: return Color(red: 76/255,  green: 201/255, blue: 167/255) // teal  #4CC9A7
+        case .note:     return Color(red: 185/255, green: 167/255, blue: 255/255) // violet #B9A7FF
+        }
+    }
 }
 
 struct AgentAction: Hashable {
@@ -142,24 +150,29 @@ enum AgentActions {
 struct AgentActionLineView: View {
     let action: AgentAction
 
-    private var tint: Color { action.kind == .remember ? .accentColor : .secondary }
+    private var tint: Color { action.kind.tint }
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Circle()
-                .fill(tint)
-                .frame(width: 6, height: 6)
-                .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
+        HStack(alignment: .firstTextBaseline, spacing: 7) {
+            Image(systemName: action.kind.symbol)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(tint)
+                .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 5 }
             Text(action.kind.verb)
                 .font(.system(.caption, design: .monospaced).weight(.semibold))
                 .foregroundStyle(tint)
             Text(action.detail)
                 .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.primary.opacity(0.85))
                 .lineLimit(4)
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 1)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 7)
+        .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .strokeBorder(tint.opacity(0.30), lineWidth: 1)
+        )
     }
 }
 
