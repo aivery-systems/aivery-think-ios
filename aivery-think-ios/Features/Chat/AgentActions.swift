@@ -174,8 +174,8 @@ struct AgentActionsBlock: View {
                 AgentActionLineView(action: action)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.leading, 2)
+        .containerRelativeFrame(.horizontal, alignment: .leading) { width, _ in width * 0.9 }
     }
 }
 
