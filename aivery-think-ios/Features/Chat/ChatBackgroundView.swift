@@ -5,22 +5,70 @@ import SwiftUI
 // Orb 2: rgba(77,163,255,0.13) blue, 120s reverse orbit
 struct ChatBackgroundView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var settings = UserSettings.shared
     private let startDate = Date()
 
     var body: some View {
         TimelineView(.periodic(from: startDate, by: 1/20)) { context in
             Canvas { ctx, size in
-                draw(ctx: ctx, size: size, elapsed: context.date.timeIntervalSince(startDate))
+                let elapsed = context.date.timeIntervalSince(startDate)
+                if settings.isAivery {
+                    drawAivery(ctx: ctx, size: size, elapsed: elapsed)
+                } else {
+                    draw(ctx: ctx, size: size, elapsed: elapsed)
+                }
             }
         }
-        .background(
-            // --surface-recessed: #1A1C1F dark / #f7f7f8 light
-            colorScheme == .dark
-                ? Color(red: 26/255, green: 28/255, blue: 31/255)
-                : Color(red: 247/255, green: 247/255, blue: 248/255)
-        )
+        .background(baseColor)
         .ignoresSafeArea()
         .allowsHitTesting(false)
+    }
+
+    private var baseColor: Color {
+        if settings.isAivery { return Color(red: 40/255, green: 46/255, blue: 120/255) }
+        // --surface-recessed: #1A1C1F dark / #f7f7f8 light
+        return colorScheme == .dark
+            ? Color(red: 26/255, green: 28/255, blue: 31/255)
+            : Color(red: 247/255, green: 247/255, blue: 248/255)
+    }
+
+    // AiVery theme: a vibrant violet→blue→teal gradient whose axis slowly rotates,
+    // with two counter-orbiting radial glows for depth — echoing the app icon.
+    private func drawAivery(ctx: GraphicsContext, size: CGSize, elapsed: TimeInterval) {
+        let w = size.width, h = size.height
+        let cx = w / 2, cy = h / 2
+
+        let violet = Color(red: 122/255, green: 79/255,  blue: 230/255)
+        let blue   = Color(red: 59/255,  green: 130/255, blue: 242/255)
+        let teal   = Color(red: 30/255,  green: 182/255, blue: 149/255)
+
+        // Rotating linear gradient axis (one full turn every 24s)
+        let angle: Double = elapsed / 24 * 2 * .pi
+        let reach = max(w, h)
+        let dx = CGFloat(cos(angle)) * reach
+        let dy = CGFloat(sin(angle)) * reach
+        let start = CGPoint(x: cx + dx, y: cy + dy)
+        let end   = CGPoint(x: cx - dx, y: cy - dy)
+        ctx.fill(
+            Path(CGRect(origin: .zero, size: size)),
+            with: .linearGradient(Gradient(colors: [violet, blue, teal]),
+                                  startPoint: start, endPoint: end)
+        )
+
+        // Two counter-orbiting radial glows for shimmering depth
+        let orbit = w * 0.32
+        let glows: [(period: Double, dir: Double, color: Color)] = [(40, 1, violet), (60, -1, teal)]
+        for g in glows {
+            let a: Double = elapsed / g.period * 2 * .pi * g.dir
+            let ox = cx + orbit * CGFloat(cos(a))
+            let oy = cy + orbit * CGFloat(sin(a))
+            let r = w * 0.7
+            ctx.fill(
+                Path(ellipseIn: CGRect(x: ox - r, y: oy - r, width: r * 2, height: r * 2)),
+                with: .radialGradient(Gradient(colors: [g.color.opacity(0.45), .clear]),
+                                      center: CGPoint(x: ox, y: oy), startRadius: 0, endRadius: r)
+            )
+        }
     }
 
     private func draw(ctx: GraphicsContext, size: CGSize, elapsed: TimeInterval) {

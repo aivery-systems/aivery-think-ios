@@ -44,7 +44,7 @@ struct PlexusView: View {
         Canvas { ctx, size in
             sim.ensureInitialized(size: size)
             sim.update(date: date, size: size)
-            sim.draw(in: ctx, size: size, isDark: colorScheme == .dark)
+            sim.draw(in: ctx, size: size, isDark: colorScheme == .dark, whitePlexus: settings.isAivery)
         }
     }
 

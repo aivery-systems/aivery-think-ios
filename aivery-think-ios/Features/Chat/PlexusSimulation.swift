@@ -166,7 +166,7 @@ final class PlexusSimulation: ObservableObject {
 
     // MARK: - Draw
 
-    func draw(in ctx: GraphicsContext, size: CGSize, isDark: Bool) {
+    func draw(in ctx: GraphicsContext, size: CGSize, isDark: Bool, whitePlexus: Bool = false) {
         let w = size.width
         let h = size.height
 
@@ -189,11 +189,11 @@ final class PlexusSimulation: ObservableObject {
         }
 
         // Particle connection lines — batched into alpha buckets for performance
-        let lineAlphaScale = isDark ? 0.12 : 0.30
-        let lineWidth: CGFloat = isDark ? 0.5 : 0.3
-        let lineColor: Color = isDark
-            ? Color(red: 100/255, green: 180/255, blue: 1)
-            : Color(red: 110/255, green: 80/255, blue: 210/255)
+        let lineAlphaScale = whitePlexus ? 0.40 : (isDark ? 0.12 : 0.30)
+        let lineWidth: CGFloat = whitePlexus ? 0.6 : (isDark ? 0.5 : 0.3)
+        let lineColor: Color = whitePlexus ? .white
+            : (isDark ? Color(red: 100/255, green: 180/255, blue: 1)
+                      : Color(red: 110/255, green: 80/255, blue: 210/255))
 
         let buckets = 8
         var paths = Array(repeating: Path(), count: buckets)
@@ -218,10 +218,10 @@ final class PlexusSimulation: ObservableObject {
         }
 
         // Dots
-        let dotColor: Color = isDark
-            ? Color(red: 130/255, green: 195/255, blue: 1, opacity: 0.35)
-            : Color(red: 130/255, green: 90/255, blue: 220/255)
-        let dotScale: Double = isDark ? 1.0 : 1.4
+        let dotColor: Color = whitePlexus ? Color.white.opacity(0.95)
+            : (isDark ? Color(red: 130/255, green: 195/255, blue: 1, opacity: 0.35)
+                      : Color(red: 130/255, green: 90/255, blue: 220/255))
+        let dotScale: Double = whitePlexus ? 1.25 : (isDark ? 1.0 : 1.4)
         for p in particles {
             let r = p.r * dotScale
             ctx.fill(Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: r*2, height: r*2)), with: .color(dotColor))

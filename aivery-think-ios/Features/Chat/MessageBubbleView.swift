@@ -12,13 +12,17 @@ struct MessageBubbleView: View {
     @ObservedObject private var settings = UserSettings.shared
 
     // --bubble-user: #4CC9A7 dark / #B9A7FF light  (matches web globals.css)
+    // AiVery theme: blue (#3B82F2) to match the icon gradient.
     private var bubbleUserColor: Color {
-        colorScheme == .dark
+        if settings.isAivery { return Color(red: 59/255, green: 130/255, blue: 242/255) }   // #3B82F2
+        return colorScheme == .dark
             ? Color(red: 76/255,  green: 201/255, blue: 167/255)   // #4CC9A7
             : Color(red: 185/255, green: 167/255, blue: 255/255)    // #B9A7FF
     }
-    // --bubble-user-fg: #0A0A0C — near-black in both modes
-    private let bubbleUserFg = Color(red: 10/255, green: 10/255, blue: 12/255)
+    // --bubble-user-fg: #0A0A0C near-black; white on the AiVery blue bubble.
+    private var bubbleUserFg: Color {
+        settings.isAivery ? .white : Color(red: 10/255, green: 10/255, blue: 12/255)
+    }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 0) {

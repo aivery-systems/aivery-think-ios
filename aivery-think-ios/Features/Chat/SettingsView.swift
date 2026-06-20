@@ -50,6 +50,7 @@ struct SettingsView: View {
                         Text("System").tag("system")
                         Text("Light").tag("light")
                         Text("Dark").tag("dark")
+                        Text("AiVery").tag("aivery")
                     } label: {
                         HStack { icon("circle.lefthalf.filled", tint: .indigo); Text("Appearance") }
                     }
