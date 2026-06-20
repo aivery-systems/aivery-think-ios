@@ -42,8 +42,10 @@ struct ChatBackgroundView: View {
         let blue   = Color(red: 59/255,  green: 130/255, blue: 242/255)
         let teal   = Color(red: 30/255,  green: 182/255, blue: 149/255)
 
-        // Rotating linear gradient axis (one full turn every 24s)
-        let angle: Double = elapsed / 24 * 2 * .pi
+        // Gentle sway of the gradient axis. A full rotation swaps the asymmetric
+        // violet/teal ends every half-turn and visibly "jumps"; a bounded sway never flips.
+        let base = Double.pi * 1.25                              // violet ↖ → teal ↘ diagonal
+        let angle: Double = base + 0.9 * sin(elapsed / 22 * 2 * .pi)
         let reach = max(w, h)
         let dx = CGFloat(cos(angle)) * reach
         let dy = CGFloat(sin(angle)) * reach
