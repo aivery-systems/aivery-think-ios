@@ -18,6 +18,7 @@ struct ChatView: View {
     @ObservedObject var vm: ChatViewModel
     @Binding var isSignedIn: Bool
     @StateObject private var conn = ConnectionMonitor.shared
+    @ObservedObject private var settings = UserSettings.shared
     @State private var inputText = ""
     @State private var showScrollToBottom = false
     @FocusState private var inputFocused: Bool
@@ -36,10 +37,12 @@ struct ChatView: View {
                     }
 
                 // Layer 2: plexus particle mesh
-                PlexusView(
-                    retrievedCount: vm.plexusRetrievedCount,
-                    writtenCount: vm.plexusWrittenCount
-                )
+                if settings.showPlexus {
+                    PlexusView(
+                        retrievedCount: vm.plexusRetrievedCount,
+                        writtenCount: vm.plexusWrittenCount
+                    )
+                }
 
                 // Message list
                 ScrollViewReader { proxy in

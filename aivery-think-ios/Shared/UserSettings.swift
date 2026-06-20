@@ -6,6 +6,9 @@ final class UserSettings: ObservableObject {
     @AppStorage("showThinking") var showThinking: Bool = true
     @AppStorage("enableReasoning") var enableReasoning: Bool = false
     @AppStorage("colorScheme") var colorScheme: String = "system"
+    // Motion / visual effects — also auto-suppressed under system Reduce Motion.
+    @AppStorage("showPlexus") var showPlexus: Bool = true
+    @AppStorage("plexusMemoryEffects") var plexusMemoryEffects: Bool = true
 
     static let shared = UserSettings()
 

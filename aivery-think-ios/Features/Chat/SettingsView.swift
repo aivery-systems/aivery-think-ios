@@ -62,6 +62,21 @@ struct SettingsView: View {
                     }
                 }
 
+                // ── Visual effects ────────────────────────────────────────
+                Section {
+                    Toggle(isOn: $settings.showPlexus) {
+                        HStack { icon("circle.hexagongrid.fill", tint: .blue); Text("Plexus background") }
+                    }
+                    Toggle(isOn: $settings.plexusMemoryEffects) {
+                        HStack { icon("sparkle", tint: .orange); Text("Memory ripples") }
+                    }
+                    .disabled(!settings.showPlexus)
+                } header: {
+                    Text("Visual Effects")
+                } footer: {
+                    Text("The animated mesh and the gold/blue ripple bursts on memory events. Ripples are also turned off automatically when iOS Reduce Motion is enabled.")
+                }
+
                 // ── Connection ────────────────────────────────────────────
                 Section {
                     Button {

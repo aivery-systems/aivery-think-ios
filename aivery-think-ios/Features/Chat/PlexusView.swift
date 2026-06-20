@@ -2,12 +2,17 @@ import SwiftUI
 
 struct PlexusView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var settings = UserSettings.shared
     let retrievedCount: Int
     let writtenCount: Int
 
     @StateObject private var sim = PlexusSimulation()
     @State private var isActive = false
     @State private var deactivateTask: Task<Void, Never>?
+
+    // Flashy event bursts fire only when enabled AND the user isn't asking for reduced motion.
+    private var effectsOn: Bool { settings.plexusMemoryEffects && !reduceMotion }
 
     var body: some View {
         Group {
@@ -24,10 +29,12 @@ struct PlexusView: View {
         .ignoresSafeArea()
         .allowsHitTesting(false)
         .onChange(of: retrievedCount) {
+            guard effectsOn else { return }
             sim.triggerMemoryRetrieved(count: retrievedCount)
             activate()
         }
         .onChange(of: writtenCount) {
+            guard effectsOn else { return }
             sim.triggerMemoryWritten()
             activate()
         }
