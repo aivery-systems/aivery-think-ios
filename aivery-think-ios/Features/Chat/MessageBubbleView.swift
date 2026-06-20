@@ -86,7 +86,14 @@ struct MessageBubbleView: View {
                     .padding(.horizontal, 15)
                     .padding(.vertical, 9)
                     .background(bubbleUserColor, in: ChatBubbleShape(isUser: true, hasTail: isLastInGroup))
-                    .shadow(color: bubbleUserColor.opacity(0.28), radius: 8, x: 0, y: 3)
+                    .overlay {
+                        if settings.isAivery {
+                            ChatBubbleShape(isUser: true, hasTail: isLastInGroup)
+                                .stroke(Color.white.opacity(0.4), lineWidth: 1)
+                        }
+                    }
+                    .shadow(color: settings.isAivery ? .black.opacity(0.28) : bubbleUserColor.opacity(0.28),
+                            radius: settings.isAivery ? 6 : 8, x: 0, y: settings.isAivery ? 2 : 3)
             } else {
                 AgentProseView(text: prose, streaming: isStreaming)
                     .padding(.horizontal, 14)

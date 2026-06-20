@@ -24,6 +24,8 @@ final class ChatViewModel: ObservableObject {
     @Published var conversationId: String? = UserDefaults.standard.string(forKey: "activeConversationId") {
         didSet { UserDefaults.standard.set(conversationId, forKey: "activeConversationId") }
     }
+    // Display name for the active conversation (nil = fresh/untitled chat).
+    @Published var conversationTitle: String?
 
     private let sseClient = SSEClient()
     private let location = LocationManager.shared
@@ -249,6 +251,7 @@ final class ChatViewModel: ObservableObject {
         sseClient.cancel()
         isStreaming = false
         conversationId = conversation.id
+        conversationTitle = conversation.title
         retrievalStages = []
         retrievedMemories = []
         await loadMessages(conversationId: conversation.id)
@@ -263,6 +266,7 @@ final class ChatViewModel: ObservableObject {
             let resp: CreateConversationResponse = try await api.request(
                 "/api/conversations", method: "POST", body: Body(title: title))
             conversationId = resp.id
+            conversationTitle = title
         } catch {
             // Leave nil — message still streams; just won't persist to a conversation.
         }
@@ -328,6 +332,7 @@ final class ChatViewModel: ObservableObject {
         sseClient.cancel()
         messages = []
         conversationId = nil   // a fresh conversation is created on the next message
+        conversationTitle = nil
         streamingText = ""
         streamingThinking = ""
         streamingNotes = []

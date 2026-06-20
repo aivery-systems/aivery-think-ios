@@ -136,6 +136,17 @@ struct ChatView: View {
             .navigationTitle("Think")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    VStack(spacing: 1) {
+                        Text("Think").font(.headline)
+                        if let title = navConversationTitle {
+                            Text(title)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         vm.startNewChat()   // fires its own crisp haptic
@@ -256,6 +267,17 @@ struct ChatView: View {
         .padding(.horizontal, 12)
         .padding(.bottom, 8)
         .animation(.snappy(duration: 0.2), value: canSend)
+    }
+
+    // Active conversation's name for the nav subtitle: server title if known, else the
+    // first user message, capped so it never crowds the bar.
+    private var navConversationTitle: String? {
+        let raw = vm.conversationTitle ?? vm.messages.first(where: { $0.isUser })?.content
+        guard let raw else { return nil }
+        let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return nil }
+        let cap = 28
+        return t.count > cap ? String(t.prefix(cap)).trimmingCharacters(in: .whitespaces) + "…" : t
     }
 
     private var offlineBanner: some View {
