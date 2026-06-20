@@ -172,7 +172,8 @@ final class PlexusSimulation: ObservableObject {
 
         // Shimmer glow overlays
         if shimmerBlue > 0.001 {
-            let c: Color = isDark ? Color(red: 80/255, green: 170/255, blue: 1) : Color(red: 110/255, green: 80/255, blue: 210/255)
+            let c: Color = whitePlexus ? Color(red: 185/255, green: 167/255, blue: 255/255)  // lavender on AiVery
+                : (isDark ? Color(red: 80/255, green: 170/255, blue: 1) : Color(red: 110/255, green: 80/255, blue: 210/255))
             ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .radialGradient(
                 Gradient(colors: [c.opacity(shimmerBlue), .clear]),
                 center: CGPoint(x: w / 2, y: h / 2),
@@ -234,11 +235,14 @@ final class PlexusSimulation: ObservableObject {
             ctx.stroke(path, with: .color(Color(red: 1, green: 200/255, blue: 50/255, opacity: rip.alpha)), lineWidth: 1.5)
         }
 
-        // Blue ripples (memory retrieved)
+        // Blue ripples (memory retrieved) — lavender on AiVery so they show on the blue gradient.
         for rip in blueRipples where rip.delay == 0 {
             var path = Path()
             path.addEllipse(in: CGRect(x: rip.x - rip.radius, y: rip.y - rip.radius, width: rip.radius*2, height: rip.radius*2))
-            ctx.stroke(path, with: .color(Color(red: 80/255, green: 170/255, blue: 1, opacity: rip.alpha)), lineWidth: rip.big ? 2.5 : 0.9)
+            let color = whitePlexus
+                ? Color(red: 200/255, green: 188/255, blue: 1.0, opacity: rip.alpha)   // bright lavender
+                : Color(red: 80/255, green: 170/255, blue: 1, opacity: rip.alpha)
+            ctx.stroke(path, with: .color(color), lineWidth: rip.big ? 2.5 : 0.9)
         }
 
         // Sparkles (dust from big blue ripples)
