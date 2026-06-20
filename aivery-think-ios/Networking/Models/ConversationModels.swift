@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 struct Conversation: Codable, Identifiable {
     let id: String
@@ -16,6 +17,9 @@ struct MessageRecord: Codable, Identifiable {
     let role: String
     let content: String
     let created_at: String
+    // Transient: the image the user sent, shown in their bubble for their eyes only.
+    // Excluded from CodingKeys, so it's never encoded/decoded or sent to the server.
+    var localImage: UIImage? = nil
 
     var isUser: Bool { role == "user" }
 

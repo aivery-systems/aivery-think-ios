@@ -39,15 +39,20 @@ final class ChatViewModel: ObservableObject {
         // Ensure a conversation exists (titled from the first message)
         await ensureConversation(firstMessage: trimmed.isEmpty ? "📷 Image" : trimmed)
 
-        // Append user message — stays visible even on error
+        // Append user message — stays visible even on error. Keep the sent image on it
+        // (transient, user's eyes only) so it shows in their bubble.
         messages.append(MessageRecord(
             id: UUID().uuidString,
             role: "user",
             content: trimmed,
-            created_at: ISO8601DateFormatter().string(from: Date())
+            created_at: ISO8601DateFormatter().string(from: Date()),
+            localImage: image
         ))
         Haptics.tapMedium()
-        streamAssistant(userText: trimmed, image: image, coordinate: location.coordinate)
+        // Image with no caption: send a default prompt so the model has text to act on
+        // (an empty text part errors); the bubble still shows just the image.
+        let prompt = (trimmed.isEmpty && image != nil) ? "What's in this image?" : trimmed
+        streamAssistant(userText: prompt, image: image, coordinate: location.coordinate)
     }
 
     // Re-send a user message (drops everything after it, then re-streams).
@@ -225,6 +230,17 @@ final class ChatViewModel: ObservableObject {
                         content: AgentNotes.embed(notes, into: m.content),
                         created_at: m.created_at)
                 }
+
+                // Preserve user-sent images (eyes only) across the swap, in order.
+                let localImages = messages.filter(\.isUser).map(\.localImage)
+                var imgIdx = 0
+                for i in server.indices where server[i].isUser {
+                    if imgIdx < localImages.count {
+                        server[i].localImage = localImages[imgIdx]
+                        imgIdx += 1
+                    }
+                }
+
                 messages = server
                 return
             }

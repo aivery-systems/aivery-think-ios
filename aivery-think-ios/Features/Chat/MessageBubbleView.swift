@@ -80,20 +80,36 @@ struct MessageBubbleView: View {
     private var bubble: some View {
         Group {
             if message.isUser {
-                Text(message.content)
-                    .foregroundStyle(bubbleUserFg)
-                    .font(.body)
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 9)
-                    .background(bubbleUserColor, in: ChatBubbleShape(isUser: true, hasTail: isLastInGroup))
-                    .overlay {
-                        if settings.isAivery {
-                            ChatBubbleShape(isUser: true, hasTail: isLastInGroup)
-                                .stroke(Color.white.opacity(0.4), lineWidth: 1)
-                        }
+                VStack(alignment: .trailing, spacing: 5) {
+                    if let img = message.localImage {
+                        Image(uiImage: img)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(maxWidth: 240, maxHeight: 260)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(.white.opacity(0.18), lineWidth: 0.5)
+                            )
+                            .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 2)
                     }
-                    .shadow(color: settings.isAivery ? .black.opacity(0.28) : bubbleUserColor.opacity(0.28),
-                            radius: settings.isAivery ? 6 : 8, x: 0, y: settings.isAivery ? 2 : 3)
+                    if !message.content.isEmpty {
+                        Text(message.content)
+                            .foregroundStyle(bubbleUserFg)
+                            .font(.body)
+                            .padding(.horizontal, 15)
+                            .padding(.vertical, 9)
+                            .background(bubbleUserColor, in: ChatBubbleShape(isUser: true, hasTail: isLastInGroup))
+                            .overlay {
+                                if settings.isAivery {
+                                    ChatBubbleShape(isUser: true, hasTail: isLastInGroup)
+                                        .stroke(Color.white.opacity(0.4), lineWidth: 1)
+                                }
+                            }
+                            .shadow(color: settings.isAivery ? .black.opacity(0.28) : bubbleUserColor.opacity(0.28),
+                                    radius: settings.isAivery ? 6 : 8, x: 0, y: settings.isAivery ? 2 : 3)
+                    }
+                }
             } else {
                 AgentProseView(text: prose, streaming: isStreaming)
                     .padding(.horizontal, 14)
