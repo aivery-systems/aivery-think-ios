@@ -2,14 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- ATS exception so Debug builds can reach the Mac's API over Tailscale via
-	     plain HTTP. Scoped to *.ts.net only — does not relax ATS anywhere else.
-	     Release talks to api/cortex.aivery.systems over HTTPS, unaffected.
-	     All standard keys are merged in by GENERATE_INFOPLIST_FILE = YES. -->
-	<key>CFBundleDisplayName</key>
-	<string>Aivery</string>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSExceptionDomains</key>

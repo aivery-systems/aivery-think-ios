@@ -11,7 +11,6 @@ import SwiftUI
 @main
 struct ThinkWidgetsBundle: WidgetBundle {
     var body: some Widget {
-        ThinkWidgets()
         ThinkWidgetsLiveActivity()
     }
 }

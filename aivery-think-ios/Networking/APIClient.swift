@@ -106,7 +106,9 @@ final class APIClient {
     var cortexURL: URL
 
     var apiKey: String?
-    var agentId: String = "default"
+    // Read-only outside APIClient — all writes go through setAgentId(_:) so the
+    // Keychain and the Share extension's App Group mirror never drift.
+    private(set) var agentId: String = "default"
 
     private let session = URLSession.shared
 
@@ -149,6 +151,23 @@ final class APIClient {
     func setApiKey(_ key: String) {
         apiKey = key
         KeychainHelper.save(key: "apiKey", value: key)
+        syncSharedCredentials()
+    }
+
+    /// Single write path for the agent id: in-memory value, Keychain (so the Siri
+    /// intent's restoreApiKey() picks it up), and the App Group mirror for the Share
+    /// extension. An empty/whitespace id means "revert to default" — the Keychain
+    /// entry is deleted so restoreApiKey() falls back to the initial "default",
+    /// instead of persisting an empty X-Agent-Id header forever.
+    func setAgentId(_ id: String) {
+        let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            agentId = "default"
+            KeychainHelper.delete(key: "agentId")
+        } else {
+            agentId = trimmed
+            KeychainHelper.save(key: "agentId", value: trimmed)
+        }
         syncSharedCredentials()
     }
 

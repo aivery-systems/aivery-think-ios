@@ -46,7 +46,7 @@ struct MemoryBrowserView: View {
                         for i in offsets {
                             let id = vm.displayed[i].id
                             Task { await vm.delete(id) }
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            Haptics.tapMedium()
                         }
                     }
                 }

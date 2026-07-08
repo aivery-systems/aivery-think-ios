@@ -13,7 +13,7 @@ struct ChatBackgroundView: View {
             Canvas { ctx, size in
                 let elapsed = context.date.timeIntervalSince(startDate)
                 if settings.isAivery {
-                    drawAivery(ctx: ctx, size: size, elapsed: elapsed)
+                    drawAivery(ctx: ctx, size: size, elapsed: elapsed, galaxy: settings.isGalaxy)
                 } else {
                     draw(ctx: ctx, size: size, elapsed: elapsed)
                 }
@@ -25,21 +25,29 @@ struct ChatBackgroundView: View {
     }
 
     private var baseColor: Color {
-        if settings.isAivery { return Color(red: 40/255, green: 46/255, blue: 120/255) }
+        if settings.isGalaxy { return Color(red: 20/255, green: 22/255, blue: 58/255) }    // #14163A navy (Galaxy)
+        if settings.isAivery { return Color(red: 40/255, green: 46/255, blue: 120/255) }   // #282E78 bright (OG AiVery)
         // --surface-recessed: #1A1C1F dark / #f7f7f8 light
         return colorScheme == .dark
             ? Color(red: 26/255, green: 28/255, blue: 31/255)
             : Color(red: 247/255, green: 247/255, blue: 248/255)
     }
 
-    // AiVery theme: a vibrant violet→blue→teal gradient whose axis slowly rotates,
+    // AiVery themes: a vibrant violet→blue→teal gradient whose axis slowly rotates,
     // with two counter-orbiting radial glows for depth — echoing the app icon.
-    private func drawAivery(ctx: GraphicsContext, size: CGSize, elapsed: TimeInterval) {
+    // Plain "AiVery" is the bright OG (full-strength gradient over a lighter indigo
+    // base); `galaxy` = the darker navy variant that dims the gradient so the base dominates.
+    private func drawAivery(ctx: GraphicsContext, size: CGSize, elapsed: TimeInterval, galaxy: Bool) {
         let w = size.width, h = size.height
         let cx = w / 2, cy = h / 2
 
+        // Deeper violet/teal than the brand constants — gradient end stops need the
+        // extra saturation to read behind glass; the middle stop is the brand blue.
+        // Navy dims the whole overlay so the dark base reads through as a subtle indigo.
+        let cov: Double = galaxy ? 0.38 : 1.0          // navy Galaxy dims; bright OG AiVery full
+        let glowOpacity: Double = galaxy ? 0.22 : 0.45 // radial glow strength
         let violet = Color(red: 122/255, green: 79/255,  blue: 230/255)
-        let blue   = Color(red: 59/255,  green: 130/255, blue: 242/255)
+        let blue   = Color.aiveryBlue
         let teal   = Color(red: 30/255,  green: 182/255, blue: 149/255)
 
         // Gentle sway of the gradient axis. A full rotation swaps the asymmetric
@@ -53,7 +61,7 @@ struct ChatBackgroundView: View {
         let end   = CGPoint(x: cx - dx, y: cy - dy)
         ctx.fill(
             Path(CGRect(origin: .zero, size: size)),
-            with: .linearGradient(Gradient(colors: [violet, blue, teal]),
+            with: .linearGradient(Gradient(colors: [violet.opacity(cov), blue.opacity(cov), teal.opacity(cov)]),
                                   startPoint: start, endPoint: end)
         )
 
@@ -67,7 +75,7 @@ struct ChatBackgroundView: View {
             let r = w * 0.7
             ctx.fill(
                 Path(ellipseIn: CGRect(x: ox - r, y: oy - r, width: r * 2, height: r * 2)),
-                with: .radialGradient(Gradient(colors: [g.color.opacity(0.45), .clear]),
+                with: .radialGradient(Gradient(colors: [g.color.opacity(glowOpacity), .clear]),
                                       center: CGPoint(x: ox, y: oy), startRadius: 0, endRadius: r)
             )
         }
@@ -82,10 +90,10 @@ struct ChatBackgroundView: View {
         let a1 =  (elapsed / 80)  * 2 * .pi   // 80s clockwise
         let a2 = -(elapsed / 120) * 2 * .pi   // 120s counter-clockwise
 
-        // --bubble-user-glow: rgba(76,201,167,0.22) dark / rgba(185,167,255,0.28) light
+        // --bubble-user-glow: brand teal @ 0.22 dark / brand violet @ 0.28 light
         let glow1: Color = colorScheme == .dark
-            ? Color(red: 76/255,  green: 201/255, blue: 167/255).opacity(0.22)
-            : Color(red: 185/255, green: 167/255, blue: 255/255).opacity(0.28)
+            ? Color.aiveryTeal.opacity(0.22)
+            : Color.aiveryViolet.opacity(0.28)
 
         // rgba(77,163,255,0.13) — same in both modes
         let glow2 = Color(red: 77/255, green: 163/255, blue: 255/255).opacity(0.13)

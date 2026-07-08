@@ -23,7 +23,9 @@ struct aivery_think_iosApp: App {
                     APIKeyEntryView(isSignedIn: $isSignedIn)
                 }
             }
-            .tint(Color.accentColor)
+            // Theme-aware tint: drives the text-input caret and all control accents.
+            // AiVery gets high-contrast amber (system blue vanishes into its gradient).
+            .tint(settings.isAivery ? Color.aiveryAccent : Color.accentColor)
             .preferredColorScheme(settings.resolvedColorScheme)
             .onAppear {
                 if APIClient.shared.restoreApiKey() {

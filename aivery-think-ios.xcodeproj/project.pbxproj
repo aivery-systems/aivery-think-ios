@@ -80,6 +80,7 @@
 		284CEA342FE22CF100AA0A99 /* Exceptions for "aivery-think-ios" folder in "ThinkWidgetsExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Shared/Theme.swift,
 				Shared/ThinkingActivityAttributes.swift,
 			);
 			target = 284CEA1A2FE22BC100AA0A99 /* ThinkWidgetsExtension */;
@@ -608,7 +609,9 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Aivery attaches your location to memories so you can search them later by place.";
+				INFOPLIST_KEY_CFBundleDisplayName = Aivery;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "AiVery attaches your location to memories so you can search them later by place.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -643,7 +646,9 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Aivery attaches your location to memories so you can search them later by place.";
+				INFOPLIST_KEY_CFBundleDisplayName = Aivery;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "AiVery attaches your location to memories so you can search them later by place.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

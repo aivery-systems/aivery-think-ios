@@ -41,8 +41,7 @@ struct SettingsView: View {
                             .autocorrectionDisabled()
                             .foregroundStyle(.secondary)
                             .onChange(of: agentId) {
-                                APIClient.shared.agentId = agentId
-                                KeychainHelper.save(key: "agentId", value: agentId)
+                                APIClient.shared.setAgentId(agentId)
                             }
                     }
 
@@ -51,6 +50,7 @@ struct SettingsView: View {
                         Text("Light").tag("light")
                         Text("Dark").tag("dark")
                         Text("AiVery").tag("aivery")
+                        Text("AiVery Galaxy").tag("galaxy")
                     } label: {
                         HStack { icon("circle.lefthalf.filled", tint: .indigo); Text("Appearance") }
                     }

@@ -8,7 +8,6 @@ final class MemoryBrowserViewModel: ObservableObject {
     @Published var typeFilter = "All"
     @Published var searchText = ""
     @Published var showStale = false
-    @Published var selectedMemory: MemoryRecord?
 
     private let types = ["All", "Semantic", "Preference", "Episodic", "Identity", "System"]
     var filterTypes: [String] { types }

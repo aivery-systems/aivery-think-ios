@@ -35,21 +35,5 @@ struct RetrievedMemory: Codable, Identifiable {
         case finalScore = "final_score"
     }
 
-    var typeLabel: String { type.capitalized }
     var scorePercent: Int { Int((finalScore ?? relevance ?? 0) * 100) }
-}
-
-extension MemoryRecord {
-    var typeColor: String {
-        switch memoryType.lowercased() {
-        case "semantic":   return "memTypeSemanticFg"
-        case "preference": return "memTypePreferenceFg"
-        case "episodic":   return "memTypeEpisodicFg"
-        case "identity":   return "memTypeIdentityFg"
-        case "system":     return "memTypeSystemFg"
-        default:           return "memTypeDefaultFg"
-        }
-    }
-
-    var typeLabel: String { memoryType.capitalized }
 }

@@ -33,11 +33,3 @@ struct MessageRecord: Codable, Identifiable {
 struct CreateConversationResponse: Decodable {
     let id: String
 }
-
-struct ConversationListResponse: Decodable {
-    let conversations: [Conversation]
-}
-
-struct MessagesResponse: Decodable {
-    let messages: [MessageRecord]
-}

@@ -23,7 +23,7 @@ struct PersonaSettingsView: View {
                             Button {
                                 chatStyle = flavor.prompt
                                 ChatPrefsLocal.chatStyle = flavor.prompt
-                                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                                Haptics.tapSoft()
                             } label: {
                                 Text(flavor.name)
                                     .font(.system(size: 13, weight: .medium))

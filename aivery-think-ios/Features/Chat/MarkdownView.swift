@@ -108,7 +108,7 @@ struct CodeBlockView: View {
                 Button {
                     UIPasteboard.general.string = code
                     copied = true
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    Haptics.tapLight()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
                 } label: {
                     Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc")

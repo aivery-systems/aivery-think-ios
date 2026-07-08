@@ -172,7 +172,7 @@ final class PlexusSimulation: ObservableObject {
 
         // Shimmer glow overlays
         if shimmerBlue > 0.001 {
-            let c: Color = whitePlexus ? Color(red: 185/255, green: 167/255, blue: 255/255)  // lavender on AiVery
+            let c: Color = whitePlexus ? .aiveryViolet  // lavender on AiVery
                 : (isDark ? Color(red: 80/255, green: 170/255, blue: 1) : Color(red: 110/255, green: 80/255, blue: 210/255))
             ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .radialGradient(
                 Gradient(colors: [c.opacity(shimmerBlue), .clear]),

@@ -2,9 +2,9 @@ import ActivityKit
 import WidgetKit
 import SwiftUI
 
-// Aivery brand
-private let aiveryTeal = Color(red: 76/255, green: 201/255, blue: 167/255)    // #4CC9A7
-private let aiveryViolet = Color(red: 185/255, green: 167/255, blue: 255/255) // #B9A7FF
+// Aivery brand — from Shared/Theme.swift (member of this target too)
+private let aiveryTeal = Color.aiveryTeal
+private let aiveryViolet = Color.aiveryViolet
 
 private func phaseIcon(_ phase: String) -> String {
     switch phase {

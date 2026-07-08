@@ -44,7 +44,7 @@ struct ProviderSettingsView: View {
                     }
 
                     HStack {
-                        Text(type == "ollama" ? "API Key" : "API Key")
+                        Text(type == "ollama" ? "API Key (optional)" : "API Key")
                             .foregroundStyle(.secondary)
                         SecureField(type == "ollama" ? "optional" : "sk-••••", text: $apiKey)
                             .multilineTextAlignment(.trailing)
@@ -83,7 +83,7 @@ struct ProviderSettingsView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    persist(); UINotificationFeedbackGenerator().notificationOccurred(.success); dismiss()
+                    persist(); Haptics.success(); dismiss()
                 } label: {
                     if save == .saving { ProgressView() } else { Text("Save").fontWeight(.semibold) }
                 }

@@ -14,9 +14,13 @@ private let chatPlaceholders = [
     "Your second brain is listening.",
 ]
 
+// AiVery interactive accent — amber lifts the input controls off the dark vibrant
+// gradient. Not the brand teal: teal is indistinguishable from the gradient's blues
+// for blue–green color-deficient vision; amber contrasts in hue and luminance both.
+private let aiveryAccent = Color.aiveryAccent
+
 struct ChatView: View {
     @ObservedObject var vm: ChatViewModel
-    @Binding var isSignedIn: Bool
     @StateObject private var conn = ConnectionMonitor.shared
     @ObservedObject private var settings = UserSettings.shared
     @State private var inputText = ""
@@ -115,7 +119,7 @@ struct ChatView: View {
                             } label: {
                                 Image(systemName: "chevron.down")
                                     .font(.system(size: 15, weight: .semibold))
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(settings.isAivery ? AnyShapeStyle(aiveryAccent) : AnyShapeStyle(.primary))
                                     .frame(width: 38, height: 38)
                                     .glassEffect(.regular.interactive(), in: .circle)
                             }
@@ -153,7 +157,7 @@ struct ChatView: View {
                     } label: {
                         Label("New Chat", systemImage: "square.and.pencil")
                             .labelStyle(.iconOnly)
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(settings.isAivery ? AnyShapeStyle(aiveryAccent) : AnyShapeStyle(.primary))
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -162,7 +166,9 @@ struct ChatView: View {
                     } label: {
                         Label("Memories Retrieved", systemImage: "sparkles")
                             .labelStyle(.iconOnly)
-                            .foregroundStyle(vm.retrievedMemories.isEmpty ? .tertiary : .primary)
+                            .foregroundStyle(vm.retrievedMemories.isEmpty
+                                             ? AnyShapeStyle(.tertiary)
+                                             : (settings.isAivery ? AnyShapeStyle(aiveryAccent) : AnyShapeStyle(.primary)))
                     }
                     .disabled(vm.retrievedMemories.isEmpty)
                 }
@@ -212,7 +218,7 @@ struct ChatView: View {
                         } else {
                             Image(systemName: "photo")
                                 .font(.system(size: 19))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(settings.isAivery ? AnyShapeStyle(aiveryAccent) : AnyShapeStyle(.secondary))
                                 .frame(width: 40, height: 40)
                         }
                     }
@@ -254,7 +260,7 @@ struct ChatView: View {
                             .font(.system(size: 30))
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(vm.isStreaming ? AnyShapeStyle(.secondary)
-                                             : AnyShapeStyle(canSend ? Color.accentColor : Color(.tertiaryLabel)))
+                                             : AnyShapeStyle(canSend ? (settings.isAivery ? aiveryAccent : Color.accentColor) : Color(.tertiaryLabel)))
                     }
                     .disabled(!canSend && !vm.isStreaming)
                     .padding(4)

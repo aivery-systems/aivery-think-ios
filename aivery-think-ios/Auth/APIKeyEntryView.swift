@@ -87,7 +87,7 @@ struct APIKeyEntryView: View {
         let trimmed = apiKey.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
         APIClient.shared.setApiKey(trimmed)
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.tapLight()
         withAnimation { isSignedIn = true }
     }
 }

@@ -12,7 +12,7 @@ struct ConversationsView: View {
             List {
                 Button {
                     chatVM.startNewChat()
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    Haptics.tapLight()
                     selectedTab = 0
                 } label: {
                     Label("New Chat", systemImage: "plus.bubble")
@@ -26,13 +26,15 @@ struct ConversationsView: View {
                         Button {
                             Task {
                                 await chatVM.open(conversation: conv)
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                Haptics.tapLight()
                                 selectedTab = 0
                             }
                         } label: {
                             conversationRow(conv)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .buttonStyle(.plain)
+                        .contentShape(Rectangle())
                         .swipeActions(edge: .trailing) {
                             Button("Delete", systemImage: "trash", role: .destructive) {
                                 Task { await vm.delete(conv.id) }

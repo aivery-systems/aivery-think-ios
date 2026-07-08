@@ -2,7 +2,6 @@ import SwiftUI
 
 struct MessageBubbleView: View {
     let message: MessageRecord
-    var isStreaming: Bool = false
     var isFirstInGroup: Bool = true
     var isLastInGroup: Bool = true
     var onRetry: (() -> Void)?
@@ -11,13 +10,11 @@ struct MessageBubbleView: View {
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var settings = UserSettings.shared
 
-    // --bubble-user: #4CC9A7 dark / #B9A7FF light  (matches web globals.css)
-    // AiVery theme: blue (#3B82F2) to match the icon gradient.
+    // --bubble-user: teal dark / violet light (matches web globals.css).
+    // AiVery theme: brand blue to match the icon gradient.
     private var bubbleUserColor: Color {
-        if settings.isAivery { return Color(red: 59/255, green: 130/255, blue: 242/255) }   // #3B82F2
-        return colorScheme == .dark
-            ? Color(red: 76/255,  green: 201/255, blue: 167/255)   // #4CC9A7
-            : Color(red: 185/255, green: 167/255, blue: 255/255)    // #B9A7FF
+        if settings.isAivery { return .aiveryBlue }
+        return colorScheme == .dark ? .aiveryTeal : .aiveryViolet
     }
     // --bubble-user-fg: #0A0A0C near-black; white on the AiVery blue bubble.
     private var bubbleUserFg: Color {
@@ -111,7 +108,7 @@ struct MessageBubbleView: View {
                     }
                 }
             } else {
-                AgentProseView(text: prose, streaming: isStreaming)
+                AgentProseView(text: prose)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(.thinMaterial, in: ChatBubbleShape(isUser: false, hasTail: isLastInGroup))

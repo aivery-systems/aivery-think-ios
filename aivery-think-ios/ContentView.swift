@@ -12,7 +12,7 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             Tab("Chat", systemImage: "bubble.left.and.text.bubble.right", value: 0) {
-                ChatView(vm: chatVM, isSignedIn: $isSignedIn)
+                ChatView(vm: chatVM)
             }
             Tab("History", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90", value: 1) {
                 ConversationsView(chatVM: chatVM, selectedTab: $selectedTab)

@@ -8,9 +8,7 @@ struct ThinkingBrainIcon: View {
 
     // Matches --bubble-user: teal in dark, violet in light.
     private var activeColor: Color {
-        colorScheme == .dark
-            ? Color(red: 76/255, green: 201/255, blue: 167/255)   // #4CC9A7
-            : Color(red: 185/255, green: 167/255, blue: 255/255)  // #B9A7FF
+        colorScheme == .dark ? .aiveryTeal : .aiveryViolet
     }
 
     private let frame = CGSize(width: 28, height: 20)

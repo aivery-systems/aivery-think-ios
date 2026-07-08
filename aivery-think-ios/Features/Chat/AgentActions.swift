@@ -11,8 +11,8 @@ enum AgentActionKind {
     /// Distinct brand tint per kind so notes don't disappear in all-gray.
     var tint: Color {
         switch self {
-        case .remember: return Color(red: 76/255,  green: 201/255, blue: 167/255) // teal  #4CC9A7
-        case .note:     return Color(red: 185/255, green: 167/255, blue: 255/255) // violet #B9A7FF
+        case .remember: return .aiveryTeal
+        case .note:     return .aiveryViolet
         }
     }
 }
