@@ -24,7 +24,9 @@ struct ThinkingIndicatorView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.leading, 12)
         .onAppear {
-            withAnimation { phase = 1 }
+            Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { _ in
+                withAnimation { phase = (phase + 1) % 3 }
+            }
         }
     }
 }

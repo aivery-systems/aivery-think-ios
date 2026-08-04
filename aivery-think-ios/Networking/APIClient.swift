@@ -266,13 +266,15 @@ final class APIClient {
             let type: String
             let source: String
             let confidence: Double
+            let timestamp: String
         }
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
         var req = URLRequest(url: baseURL.appendingPathComponent("/memory/write"), timeoutInterval: 12)
         req.httpMethod = "POST"
         for (k, v) in commonHeaders() { req.setValue(v, forHTTPHeaderField: k) }
         req.httpBody = try JSONEncoder().encode(
-            Body(content: trimmed, agent_id: agentId, type: type, source: source, confidence: 1.0))
+            Body(content: trimmed, agent_id: agentId, type: type, source: source, confidence: 1.0,
+                 timestamp: ISO8601DateFormatter().string(from: Date())))
 
         let (_, response) = try await session.data(for: req)
         guard let http = response as? HTTPURLResponse else {

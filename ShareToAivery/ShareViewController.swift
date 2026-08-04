@@ -89,6 +89,7 @@ class ShareViewController: SLComposeServiceViewController {
             "type": "semantic",
             "source": "ios-share",
             "confidence": 1.0,
+            "timestamp": ISO8601DateFormatter().string(from: Date()),
         ])
 
         URLSession.shared.dataTask(with: req) { _, _, _ in
