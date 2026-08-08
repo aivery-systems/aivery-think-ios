@@ -28,7 +28,13 @@ final class ChatViewModel: ObservableObject {
     @Published var conversationTitle: String?
     // Recall Only: the active conversation never creates/updates memories, but still
     // recalls existing ones and its own message history. Set at creation, immutable after.
-    @Published var conversationRecallOnly: Bool = false
+    // Persisted alongside conversationId — without this, an app relaunch (iOS backgrounding
+    // the process, force-quit, etc.) restores conversationId correctly but silently resets
+    // this to false, and the user resumes chatting with memory-write suppression disabled
+    // in what still looks like the same recall-only conversation.
+    @Published var conversationRecallOnly: Bool = UserDefaults.standard.bool(forKey: "activeConversationRecallOnly") {
+        didSet { UserDefaults.standard.set(conversationRecallOnly, forKey: "activeConversationRecallOnly") }
+    }
 
     private let sseClient = SSEClient()
     private let location = LocationManager.shared
