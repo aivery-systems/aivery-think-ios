@@ -121,7 +121,7 @@ struct ChatView: View {
                                     .font(.system(size: 15, weight: .semibold))
                                     .foregroundStyle(settings.isAivery ? AnyShapeStyle(aiveryAccent) : AnyShapeStyle(.primary))
                                     .frame(width: 38, height: 38)
-                                    .glassEffect(.regular.interactive(), in: .circle)
+                                    .glassEffectCompat(interactive: true, in: .circle)
                             }
                             .padding(.trailing, 16)
                             .padding(.bottom, 88)   // float above the input bar
@@ -217,7 +217,7 @@ struct ChatView: View {
     }
 
     private var inputBar: some View {
-        GlassEffectContainer(spacing: 8) {
+        GlassEffectContainerCompat(spacing: 8) {
             HStack(alignment: .bottom, spacing: 8) {
                 // Photo picker button
                 PhotosPicker(selection: $photoItem, matching: .images) {
@@ -236,7 +236,7 @@ struct ChatView: View {
                         }
                     }
                 }
-                .glassEffect(.regular.interactive(), in: .circle)
+                .glassEffectCompat(interactive: true, in: .circle)
                 .onChange(of: photoItem) {
                     Task {
                         if let data = try? await photoItem?.loadTransferable(type: Data.self),
@@ -280,7 +280,7 @@ struct ChatView: View {
                 }
                 // Fixed-radius rounded rect (not a capsule): looks pill-like on one line,
                 // but keeps a consistent radius as the field grows — like iMessage.
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 21, style: .continuous))
+                .glassEffectCompat(in: RoundedRectangle(cornerRadius: 21, style: .continuous))
             }
         }
         .padding(.horizontal, 12)
