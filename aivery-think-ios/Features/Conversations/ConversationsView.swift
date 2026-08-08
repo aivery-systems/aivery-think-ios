@@ -10,10 +10,21 @@ struct ConversationsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Button {
-                    chatVM.startNewChat()
-                    Haptics.tapLight()
-                    selectedTab = 0
+                Menu {
+                    Button {
+                        chatVM.startNewChat()
+                        Haptics.tapLight()
+                        selectedTab = 0
+                    } label: {
+                        Label("New Chat", systemImage: "plus.bubble")
+                    }
+                    Button {
+                        chatVM.startNewChat(recallOnly: true)
+                        Haptics.tapLight()
+                        selectedTab = 0
+                    } label: {
+                        Label("New Recall Only Chat", systemImage: "eye.slash")
+                    }
                 } label: {
                     Label("New Chat", systemImage: "plus.bubble")
                         .foregroundStyle(Color.accentColor)
@@ -75,9 +86,17 @@ struct ConversationsView: View {
                 Text(conv.displayTitle)
                     .font(.subheadline)
                     .foregroundStyle(.primary)
-                Text(relativeDate(conv.created_at))
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                HStack(spacing: 4) {
+                    if conv.recall_only {
+                        Label("Recall Only", systemImage: "eye.slash")
+                            .font(.caption2)
+                            .labelStyle(.titleAndIcon)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(relativeDate(conv.created_at))
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
             }
             Spacer()
             if conv.id == chatVM.conversationId {

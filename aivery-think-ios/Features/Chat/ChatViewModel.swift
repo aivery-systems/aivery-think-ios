@@ -26,6 +26,9 @@ final class ChatViewModel: ObservableObject {
     }
     // Display name for the active conversation (nil = fresh/untitled chat).
     @Published var conversationTitle: String?
+    // Recall Only: the active conversation never creates/updates memories, but still
+    // recalls existing ones and its own message history. Set at creation, immutable after.
+    @Published var conversationRecallOnly: Bool = false
 
     private let sseClient = SSEClient()
     private let location = LocationManager.shared
@@ -103,7 +106,8 @@ final class ChatViewModel: ObservableObject {
                 provider: ProviderSettingsLocal.load(),
                 image: image,
                 latitude: coordinate?.lat,
-                longitude: coordinate?.lon
+                longitude: coordinate?.lon,
+                skipMemoryWrite: conversationRecallOnly
             )
             req.httpBody = try JSONEncoder().encode(body)
         } catch {
@@ -268,19 +272,21 @@ final class ChatViewModel: ObservableObject {
         isStreaming = false
         conversationId = conversation.id
         conversationTitle = conversation.title
+        conversationRecallOnly = conversation.recall_only
         retrievalStages = []
         retrievedMemories = []
         await loadMessages(conversationId: conversation.id)
     }
 
-    // Create a conversation lazily on the first message of a fresh chat.
+    // Create a conversation lazily on the first message of a fresh chat. recallOnly comes
+    // from conversationRecallOnly, already primed by startNewChat(recallOnly:).
     private func ensureConversation(firstMessage: String) async {
         guard conversationId == nil else { return }
         let title = String(firstMessage.prefix(48))
-        struct Body: Encodable { let title: String }
+        struct Body: Encodable { let title: String; let recallOnly: Bool }
         do {
             let resp: CreateConversationResponse = try await api.request(
-                "/api/conversations", method: "POST", body: Body(title: title))
+                "/api/conversations", method: "POST", body: Body(title: title, recallOnly: conversationRecallOnly))
             conversationId = resp.id
             conversationTitle = title
         } catch {
@@ -344,11 +350,12 @@ final class ChatViewModel: ObservableObject {
             "/api/conversations/\(cid)/messages/\(mid)", method: "DELETE")
     }
 
-    func startNewChat() {
+    func startNewChat(recallOnly: Bool = false) {
         sseClient.cancel()
         messages = []
         conversationId = nil   // a fresh conversation is created on the next message
         conversationTitle = nil
+        conversationRecallOnly = recallOnly
         streamingText = ""
         streamingThinking = ""
         streamingNotes = []

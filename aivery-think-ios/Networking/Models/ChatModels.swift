@@ -24,6 +24,7 @@ struct CortexChatRequest: Encodable {
     let image: String?      // base64-encoded JPEG
     let latitude: Double?
     let longitude: Double?
+    let skip_memory_write: Bool
 
     init(message: String, agentId: String, think: Bool = false,
          conversationId: String? = nil,
@@ -32,7 +33,8 @@ struct CortexChatRequest: Encodable {
          provider: ProviderSettings? = nil,
          image: UIImage? = nil,
          latitude: Double? = nil,
-         longitude: Double? = nil) {
+         longitude: Double? = nil,
+         skipMemoryWrite: Bool = false) {
         self.message = message
         self.agent_id = agentId
         self.think = think
@@ -42,6 +44,7 @@ struct CortexChatRequest: Encodable {
         self.image = image.flatMap { Self.encodeImage($0) }
         self.latitude = latitude
         self.longitude = longitude
+        self.skip_memory_write = skipMemoryWrite
         self.chat_style = (chatStyle?.isEmpty == false) ? chatStyle : nil
         if let p = provider, p.enabled, !p.baseUrl.isEmpty {
             self.provider_type = p.type

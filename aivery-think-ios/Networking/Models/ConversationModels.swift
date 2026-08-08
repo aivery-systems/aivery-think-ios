@@ -7,6 +7,7 @@ struct Conversation: Codable, Identifiable {
     let title: String?
     let created_at: String
     let parent_message_id: String?
+    let recall_only: Bool
 
     var displayTitle: String { title?.isEmpty == false ? title! : "New Chat" }
     var isBranch: Bool { parent_message_id != nil }

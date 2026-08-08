@@ -143,11 +143,24 @@ struct ChatView: View {
                 ToolbarItem(placement: .principal) {
                     VStack(spacing: 1) {
                         Text("Think").font(.headline)
-                        if let title = navConversationTitle {
-                            Text(title)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                        if vm.conversationRecallOnly || navConversationTitle != nil {
+                            HStack(spacing: 3) {
+                                if vm.conversationRecallOnly {
+                                    Image(systemName: "eye.slash")
+                                        .font(.caption2)
+                                    Text("Recall Only")
+                                        .font(.caption2)
+                                    if navConversationTitle != nil {
+                                        Text("·").font(.caption2)
+                                    }
+                                }
+                                if let title = navConversationTitle {
+                                    Text(title)
+                                        .font(.caption2)
+                                        .lineLimit(1)
+                                }
+                            }
+                            .foregroundStyle(.secondary)
                         }
                     }
                 }

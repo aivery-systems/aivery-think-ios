@@ -24,7 +24,8 @@ final class ConversationsViewModel: ObservableObject {
                 let old = conversations[idx]
                 conversations[idx] = Conversation(
                     id: old.id, agent_id: old.agent_id, title: title,
-                    created_at: old.created_at, parent_message_id: old.parent_message_id)
+                    created_at: old.created_at, parent_message_id: old.parent_message_id,
+                    recall_only: old.recall_only)
             }
         } catch { /* surface if needed */ }
     }

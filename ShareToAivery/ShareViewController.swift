@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 /// Fabric /memory/write endpoint. Credentials come from the App Group the main app mirrors.
 class ShareViewController: SLComposeServiceViewController {
 
-    private let appGroup = "group.matsoukis.aivery-think-ios"
+    private let appGroup = "group.systems.aivery.think"
 
     override func viewDidLoad() {
         super.viewDidLoad()

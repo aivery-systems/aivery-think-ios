@@ -140,7 +140,7 @@ final class APIClient {
 
     // Mirror credentials into the shared App Group so the Share extension can reach
     // /memory/write with the same key, agent, and host as the app.
-    static let sharedAppGroup = "group.matsoukis.aivery-think-ios"
+    static let sharedAppGroup = "group.systems.aivery.think"
     func syncSharedCredentials() {
         guard let d = UserDefaults(suiteName: APIClient.sharedAppGroup) else { return }
         d.set(apiKey, forKey: "apiKey")

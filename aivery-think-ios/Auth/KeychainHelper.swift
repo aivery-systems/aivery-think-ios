@@ -2,7 +2,7 @@ import Foundation
 import Security
 
 enum KeychainHelper {
-    private static let service = Bundle.main.bundleIdentifier ?? "matsoukis.aivery-think-ios"
+    private static let service = Bundle.main.bundleIdentifier ?? "systems.aivery.think"
 
     static func save(key: String, value: String) {
         let data = Data(value.utf8)
