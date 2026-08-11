@@ -19,6 +19,59 @@ private let chatPlaceholders = [
 // for blue–green color-deficient vision; amber contrasts in hue and luminance both.
 private let aiveryAccent = Color.aiveryAccent
 
+// UIScrollView KVO scroll tracking (iOS 13+ compatible) — replaces
+// onScrollGeometryChange, which requires iOS 18. SwiftUI's GeometryReader +
+// PreferenceKey combo (the usual pre-iOS-18 recipe) only fires once here and never
+// updates on subsequent layout passes, so it silently never shows the chevron —
+// observing the underlying UIScrollView's contentOffset/contentSize directly via
+// KVO is the reliable, long-established fallback for this exact problem.
+private final class ScrollOffsetCoordinator: NSObject {
+    var onChange: ((_ offset: CGFloat, _ contentHeight: CGFloat, _ viewportHeight: CGFloat) -> Void)?
+    private weak var scrollView: UIScrollView?
+    private var observations: [NSKeyValueObservation] = []
+
+    func attach(to scrollView: UIScrollView) {
+        guard self.scrollView !== scrollView else { return }
+        self.scrollView = scrollView
+        observations = [
+            scrollView.observe(\.contentOffset, options: [.initial, .new]) { [weak self] sv, _ in self?.report(sv) },
+            scrollView.observe(\.contentSize, options: [.new]) { [weak self] sv, _ in self?.report(sv) },
+            scrollView.observe(\.bounds, options: [.new]) { [weak self] sv, _ in self?.report(sv) },
+        ]
+    }
+
+    private func report(_ sv: UIScrollView) {
+        onChange?(sv.contentOffset.y, sv.contentSize.height, sv.bounds.height)
+    }
+}
+
+private struct ScrollOffsetReader: UIViewRepresentable {
+    let onChange: (CGFloat, CGFloat, CGFloat) -> Void
+
+    func makeCoordinator() -> ScrollOffsetCoordinator {
+        let coordinator = ScrollOffsetCoordinator()
+        coordinator.onChange = onChange
+        return coordinator
+    }
+
+    func makeUIView(context: Context) -> UIView {
+        UIView(frame: .zero)
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        context.coordinator.onChange = onChange
+        DispatchQueue.main.async {
+            var responder: UIResponder? = uiView
+            while let r = responder, !(r is UIScrollView) {
+                responder = r.next
+            }
+            if let scrollView = responder as? UIScrollView {
+                context.coordinator.attach(to: scrollView)
+            }
+        }
+    }
+}
+
 struct ChatView: View {
     @ObservedObject var vm: ChatViewModel
     @StateObject private var conn = ConnectionMonitor.shared
@@ -93,6 +146,16 @@ struct ChatView: View {
                         }
                         .padding(.top, 8)
                         .animation(.spring(response: 0.34, dampingFraction: 0.82), value: vm.messages.count)
+                        .background(
+                            // Show the jump-to-bottom chevron when scrolled up from the latest message
+                            ScrollOffsetReader { offset, contentHeight, viewportHeight in
+                                let maxOffset = max(0, contentHeight - viewportHeight)
+                                let away = (maxOffset - offset) > 140
+                                if away != showScrollToBottom {
+                                    withAnimation(.easeInOut(duration: 0.2)) { showScrollToBottom = away }
+                                }
+                            }
+                        )
                     }
                     .onChange(of: vm.streamingText) {
                         withAnimation(.linear(duration: 0.1)) {
@@ -103,13 +166,6 @@ struct ChatView: View {
                         withAnimation {
                             proxy.scrollTo("bottom-anchor", anchor: .bottom)
                         }
-                    }
-                    // Show the jump-to-bottom chevron when scrolled up from the latest message
-                    .onScrollGeometryChange(for: Bool.self) { geo in
-                        let maxOffset = max(0, geo.contentSize.height - geo.containerSize.height)
-                        return (maxOffset - geo.contentOffset.y) > 140
-                    } action: { _, away in
-                        withAnimation(.easeInOut(duration: 0.2)) { showScrollToBottom = away }
                     }
                     .scrollDismissesKeyboard(.interactively)
                     .overlay(alignment: .bottomTrailing) {

@@ -11,18 +11,18 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            Tab("Chat", systemImage: "bubble.left.and.text.bubble.right", value: 0) {
-                ChatView(vm: chatVM)
-            }
-            Tab("History", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90", value: 1) {
-                ConversationsView(chatVM: chatVM, selectedTab: $selectedTab)
-            }
-            Tab("Memories", systemImage: "brain.head.profile", value: 2) {
-                MemoryBrowserView()
-            }
-            Tab("Settings", systemImage: "gearshape", value: 3) {
-                SettingsView(isSignedIn: $isSignedIn)
-            }
+            ChatView(vm: chatVM)
+                .tabItem { Label("Chat", systemImage: "bubble.left.and.text.bubble.right") }
+                .tag(0)
+            ConversationsView(chatVM: chatVM, selectedTab: $selectedTab)
+                .tabItem { Label("History", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90") }
+                .tag(1)
+            MemoryBrowserView()
+                .tabItem { Label("Memories", systemImage: "brain.head.profile") }
+                .tag(2)
+            SettingsView(isSignedIn: $isSignedIn)
+                .tabItem { Label("Settings", systemImage: "gearshape") }
+                .tag(3)
         }
         .ignoresSafeArea(.keyboard)
         .onChange(of: scenePhase) {

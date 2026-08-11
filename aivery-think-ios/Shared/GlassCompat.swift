@@ -18,7 +18,7 @@ extension View {
     /// the fallback has no equivalent, so it's accepted and ignored there.
     @ViewBuilder
     func glassEffectCompat<S: InsettableShape>(interactive: Bool = false, in shape: S) -> some View {
-        if GlassSupport.isAvailable {
+        if #available(iOS 26.0, *), GlassSupport.isAvailable {
             if interactive {
                 self.glassEffect(.regular.interactive(), in: shape)
             } else {
@@ -40,7 +40,7 @@ struct GlassEffectContainerCompat<Content: View>: View {
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        if GlassSupport.isAvailable {
+        if #available(iOS 26.0, *), GlassSupport.isAvailable {
             GlassEffectContainer(spacing: spacing, content: content)
         } else {
             content()
