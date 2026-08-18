@@ -11,6 +11,13 @@ final class ChatViewModel: ObservableObject {
     @Published var streamingThinking = ""
     @Published var streamingNotes: [String] = []
     @Published var isStreaming = false
+    // True between response_complete (all visible text emitted) and done (memory writes
+    // drained server-side) — the caret stops and a "saving memories…" hint shows.
+    @Published var memoryPhase = false
+    // Memories written during the in-flight turn — rendered as tappable chips.
+    @Published var streamingMemories: [WrittenMemoryRef] = []
+    // A chip was tapped; non-nil presents the memory detail sheet.
+    @Published var selectedMemory: MemoryRecord?
     @Published var retrievalStages: [RetrievalStageEvent] = []
     @Published var retrievedMemories: [RetrievedMemory] = []
     @Published var showRetrievalSheet = false
@@ -125,6 +132,8 @@ final class ChatViewModel: ObservableObject {
         streamingText = ""
         streamingThinking = ""
         streamingNotes = []
+        streamingMemories = []
+        memoryPhase = false
         LiveActivityManager.shared.start(agentId: api.agentId)
         startSSE(request: req)
     }
@@ -175,10 +184,16 @@ final class ChatViewModel: ObservableObject {
             retrievedMemories = mems
             plexusRetrievedCount += mems.count
             LiveActivityManager.shared.update(phase: "Recalling", detail: "\(mems.count) " + (mems.count == 1 ? "memory" : "memories"))
-        case .memoryWritten:
+        case .memoryWritten(let ref):
             plexusWrittenCount += 1
             Haptics.success()
             NotificationManager.shared.scheduleMemoryStored(agentId: api.agentId)
+            if let ref, !streamingMemories.contains(where: { $0.id == ref.id }) {
+                streamingMemories.append(ref)
+            }
+        case .responseComplete:
+            memoryPhase = true
+            LiveActivityManager.shared.update(phase: "Saving memories")
         case .agentNote(let note):
             let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty, !streamingNotes.contains(trimmed) {
@@ -198,8 +213,9 @@ final class ChatViewModel: ObservableObject {
         LiveActivityManager.shared.end()
 
         if !streamingText.isEmpty {
-            // Embed the agent's action notes so the "memory saved" chip survives reload.
-            let content = AgentNotes.embed(streamingNotes, into: streamingText)
+            // Embed notes + written-memory refs so the chips survive reload.
+            let content = MemoryRefs.embed(streamingMemories,
+                                           into: AgentNotes.embed(streamingNotes, into: streamingText))
             messages.append(MessageRecord(
                 id: UUID().uuidString,
                 role: "assistant",
@@ -210,7 +226,8 @@ final class ChatViewModel: ObservableObject {
             ConnectionMonitor.shared.noteOnline()   // a successful turn proves reachability
             // Quietly swap local-id messages for server-id ones so Retry/Branch/Delete work.
             let turnNotes = streamingNotes
-            Task { await syncMessagesFromServer(expecting: messages.count, notes: turnNotes) }
+            let turnRefs = streamingMemories
+            Task { await syncMessagesFromServer(expecting: messages.count, notes: turnNotes, refs: turnRefs) }
         } else if streamingThinking.isEmpty && errorMessage == nil {
             errorMessage = "No response received. Check Cortex is running and your provider/model in Settings.\nCortex: \(api.cortexURL)"
         }
@@ -218,27 +235,38 @@ final class ChatViewModel: ObservableObject {
         streamingText = ""
         streamingThinking = ""
         streamingNotes = []
+        streamingMemories = []
+        memoryPhase = false
     }
 
     // After a turn, Cortex logs both messages to Fabric asynchronously. Poll briefly
     // until the server has caught up, then replace local copies so every message
     // carries its real server id (needed for delete/branch/retry).
-    private func syncMessagesFromServer(expecting localCount: Int, notes: [String] = []) async {
+    private func syncMessagesFromServer(expecting localCount: Int, notes: [String] = [], refs: [WrittenMemoryRef] = []) async {
         guard let cid = conversationId else { return }
         for attempt in 0..<4 {
             try? await Task.sleep(nanoseconds: attempt == 0 ? 700_000_000 : 1_000_000_000)
             guard !isStreaming, conversationId == cid else { return }  // a new turn started
             guard var server: [MessageRecord] = try? await api.request("/api/conversations/\(cid)/messages") else { return }
             if server.count >= localCount {
-                // Server doesn't persist agent notes — re-attach them to the latest
-                // assistant message so the "memory saved" chip doesn't vanish on sync.
-                if !notes.isEmpty,
-                   let lastAssistantIdx = server.lastIndex(where: { !$0.isUser }) {
+                // Cortex now embeds notes + memory refs when logging the turn to Fabric,
+                // but guard-and-re-attach anyway (older Cortex, or a race) so chips
+                // never vanish on sync — without ever duplicating a block.
+                if let lastAssistantIdx = server.lastIndex(where: { !$0.isUser }) {
                     let m = server[lastAssistantIdx]
-                    server[lastAssistantIdx] = MessageRecord(
-                        id: m.id, role: m.role,
-                        content: AgentNotes.embed(notes, into: m.content),
-                        created_at: m.created_at)
+                    var content = m.content
+                    if !notes.isEmpty, AgentNotes.extract(from: content).notes.isEmpty {
+                        content = AgentNotes.embed(notes, into: content)
+                    }
+                    if !refs.isEmpty, MemoryRefs.extract(from: content).refs.isEmpty {
+                        content = MemoryRefs.embed(refs, into: content)
+                    }
+                    if content != m.content {
+                        server[lastAssistantIdx] = MessageRecord(
+                            id: m.id, role: m.role,
+                            content: content,
+                            created_at: m.created_at)
+                    }
                 }
 
                 // Preserve user-sent images (eyes only) across the swap, in order.
@@ -301,9 +329,22 @@ final class ChatViewModel: ObservableObject {
     }
 
     private func stripThink(_ content: String) -> String {
-        // Strip reasoning AND agent-action tags (note/remember) so prior turns fed back
-        // to the model never contain its own control tags.
-        AgentActions.plainText(from: ThinkText.split(content).response)
+        // Strip reasoning, agent-action tags (note/remember), and the persisted
+        // <agent_notes>/<memory_refs> blocks so prior turns fed back to the model
+        // never contain its own control tags.
+        let noNotes = AgentNotes.extract(from: content).content
+        let noRefs = MemoryRefs.extract(from: noNotes).content
+        return AgentActions.plainText(from: ThinkText.split(noRefs).response)
+    }
+
+    // Chip tap: fetch the memory and present the detail sheet.
+    func openMemory(id: String) async {
+        do {
+            let record: MemoryRecord = try await api.request("/api/memories/\(id)")
+            selectedMemory = record
+        } catch {
+            errorMessage = "Couldn't load that memory — it may have been deleted or replaced by an edit."
+        }
     }
 
     // Turn raw NSURLError codes into something a human can act on.
@@ -365,6 +406,8 @@ final class ChatViewModel: ObservableObject {
         streamingText = ""
         streamingThinking = ""
         streamingNotes = []
+        streamingMemories = []
+        memoryPhase = false
         isStreaming = false
         retrievalStages = []
         retrievedMemories = []

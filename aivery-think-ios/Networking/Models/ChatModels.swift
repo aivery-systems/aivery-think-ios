@@ -87,8 +87,11 @@ enum SSEEvent {
     case thinkChunk(String)
     case retrievalStage(RetrievalStageEvent)
     case memoryResult([RetrievedMemory])
-    case memoryWritten
+    // nil when the payload fails to decode — counter/haptic still fire, chip is skipped
+    case memoryWritten(WrittenMemoryRef?)
     case agentNote(String)
+    // All visible text is out; only server-side memory writes remain before done.
+    case responseComplete
     case done
     case error
 }

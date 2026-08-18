@@ -7,6 +7,7 @@ struct MessageBubbleView: View {
     var onRetry: (() -> Void)?
     var onBranch: (() -> Void)?
     var onDelete: (() -> Void)?
+    var onMemoryTap: ((String) -> Void)?
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var settings = UserSettings.shared
 
@@ -53,12 +54,16 @@ struct MessageBubbleView: View {
 
                 bubble
 
-                // Agent action notes ("Stored a memory about …")
+                // Agent action notes ("Stored a memory about …") + saved-memory chips
                 if !message.isUser {
                     let notes = AgentNotes.extract(from: message.content).notes
-                    if !notes.isEmpty {
+                    let refs = MemoryRefs.extract(from: message.content).refs
+                    if !notes.isEmpty || !refs.isEmpty {
                         VStack(alignment: .leading, spacing: 3) {
                             ForEach(notes, id: \.self) { AgentNoteChip(text: $0) }
+                            ForEach(refs) { ref in
+                                MemorySavedChip(memory: ref) { onMemoryTap?(ref.id) }
+                            }
                         }
                         .padding(.top, 1)
                     }
@@ -138,13 +143,13 @@ struct MessageBubbleView: View {
     }
 
     private func extractThinking(from content: String) -> String? {
-        let clean = AgentNotes.extract(from: content).content
+        let clean = MemoryRefs.extract(from: AgentNotes.extract(from: content).content).content
         let thinking = ThinkText.split(clean).thinking
         return thinking.isEmpty ? nil : thinking
     }
 
     private func strippedContent(_ content: String) -> String {
-        ThinkText.split(AgentNotes.extract(from: content).content).response
+        ThinkText.split(MemoryRefs.extract(from: AgentNotes.extract(from: content).content).content).response
     }
 
     // Agent actions (note/remember) shown above the bubble; prose goes inside it.
@@ -175,11 +180,56 @@ struct AgentNoteChip: View {
     }
 }
 
+/// Tappable "Memory saved" chip with a type-colored dot — opens the memory detail
+/// sheet. Mirrors the web client's MemorySavedChip (aivery-think/.../chat/chat-history.tsx).
+struct MemorySavedChip: View {
+    let memory: WrittenMemoryRef
+    var onTap: (() -> Void)?
+
+    // Same palette as TypeBadge (MemoryRetrievalSheetView).
+    private var dotColor: Color {
+        switch memory.type.lowercased() {
+        case "semantic":   return .blue
+        case "preference": return .purple
+        case "episodic":   return .orange
+        case "identity":   return .green
+        case "system":     return .gray
+        default:           return .secondary
+        }
+    }
+    private var snippet: String {
+        memory.content.count > 60
+            ? String(memory.content.prefix(60)).trimmingCharacters(in: .whitespaces) + "…"
+            : memory.content
+    }
+
+    var body: some View {
+        Button { onTap?() } label: {
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(dotColor.opacity(0.75))
+                    .frame(width: 7, height: 7)
+                (Text("Memory saved").foregroundStyle(.secondary)
+                    + Text(snippet.isEmpty ? "" : " · \(snippet)").foregroundStyle(.tertiary))
+                    .font(.caption2)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 /// Streaming assistant bubble — same glass treatment as completed assistant bubbles
 struct StreamingBubbleView: View {
     let text: String
     let thinking: String
     var notes: [String] = []
+    var memories: [WrittenMemoryRef] = []
+    // Text is done; server is finishing memory writes. Caret off, hint row on.
+    var memoryPhase: Bool = false
+    var onMemoryTap: ((String) -> Void)?
 
     var body: some View {
         // Some models stream reasoning inline as <think>…</think> within the chunk
@@ -220,7 +270,7 @@ struct StreamingBubbleView: View {
                 }
 
                 if !prose.isEmpty {
-                    AgentProseView(text: prose, streaming: true)
+                    AgentProseView(text: prose, streaming: !memoryPhase)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .background(.thinMaterial, in: ChatBubbleShape(isUser: false, hasTail: true))
@@ -232,6 +282,29 @@ struct StreamingBubbleView: View {
                         ForEach(notes, id: \.self) { AgentNoteChip(text: $0) }
                     }
                     .padding(.top, 1)
+                    .transition(.opacity)
+                }
+
+                // Saved-memory chips, appearing live as writes land
+                if !memories.isEmpty {
+                    VStack(alignment: .leading, spacing: 3) {
+                        ForEach(memories) { ref in
+                            MemorySavedChip(memory: ref) { onMemoryTap?(ref.id) }
+                        }
+                    }
+                    .padding(.top, 1)
+                    .transition(.opacity)
+                }
+
+                // Text is complete; memory writes still draining server-side
+                if memoryPhase {
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.mini)
+                        Text("saving memories…")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 2)
                     .transition(.opacity)
                 }
             }

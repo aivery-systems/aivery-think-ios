@@ -74,6 +74,9 @@ private struct ScrollOffsetReader: UIViewRepresentable {
 
 struct ChatView: View {
     @ObservedObject var vm: ChatViewModel
+    // Backs the chip-tap memory detail sheet; list stays empty — update/restore
+    // guards in the VM no-op on ids outside it, the HTTP calls still fire.
+    @StateObject private var chatMemoryVM = MemoryBrowserViewModel()
     @StateObject private var conn = ConnectionMonitor.shared
     @ObservedObject private var settings = UserSettings.shared
     @State private var inputText = ""
@@ -120,7 +123,8 @@ struct ChatView: View {
                                     isLastInGroup: index == vm.messages.count - 1 || vm.messages[index + 1].role != msg.role,
                                     onRetry: { Task { if msg.isUser { await vm.retryUser(msg) } else { await vm.regenerate(msg) } } },
                                     onBranch: msg.isUser ? nil : { Task { await vm.branch(from: msg) } },
-                                    onDelete: { Task { await vm.delete(msg) } }
+                                    onDelete: { Task { await vm.delete(msg) } },
+                                    onMemoryTap: { id in Task { await vm.openMemory(id: id) } }
                                 )
                                 .id(msg.id)
                                 .transition(.scale(scale: 0.96, anchor: msg.isUser ? .bottomTrailing : .bottomLeading).combined(with: .opacity))
@@ -128,14 +132,17 @@ struct ChatView: View {
 
                             // Live streaming bubble
                             if vm.isStreaming {
-                                if vm.streamingText.isEmpty && vm.streamingThinking.isEmpty && vm.streamingNotes.isEmpty {
+                                if vm.streamingText.isEmpty && vm.streamingThinking.isEmpty && vm.streamingNotes.isEmpty && vm.streamingMemories.isEmpty {
                                     ThinkingIndicatorView()
                                         .id("thinking-indicator")
                                 } else {
                                     StreamingBubbleView(
                                         text: vm.streamingText,
                                         thinking: vm.streamingThinking,
-                                        notes: vm.streamingNotes
+                                        notes: vm.streamingNotes,
+                                        memories: vm.streamingMemories,
+                                        memoryPhase: vm.memoryPhase,
+                                        onMemoryTap: { id in Task { await vm.openMemory(id: id) } }
                                     )
                                     .id("streaming-bubble")
                                 }
@@ -263,6 +270,13 @@ struct ChatView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
                 .presentationBackground(.regularMaterial)
+            }
+            .sheet(item: $vm.selectedMemory) { memory in
+                NavigationStack {
+                    MemoryDetailView(memory: memory, vm: chatMemoryVM)
+                }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
             }
             .alert("Error", isPresented: .constant(vm.errorMessage != nil), actions: {
                 Button("OK") { vm.errorMessage = nil }

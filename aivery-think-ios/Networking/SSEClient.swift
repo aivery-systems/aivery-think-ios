@@ -85,7 +85,11 @@ final class SSEClient: NSObject {
             }
 
         case "memory_written":
-            onEvent?(.memoryWritten)
+            let ref = try? JSONDecoder().decode(WrittenMemoryRef.self, from: Data(data.utf8))
+            onEvent?(.memoryWritten(ref))
+
+        case "response_complete":
+            onEvent?(.responseComplete)
 
         case "agent_note":
             let note = (try? JSONDecoder().decode(String.self, from: Data(data.utf8))) ?? data
