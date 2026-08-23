@@ -608,8 +608,8 @@
 				DEVELOPMENT_TEAM = 442ZGJTQRG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Aivery;
+				INFOPLIST_FILE = Info.Debug.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "AiVery Think";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "AiVery attaches your location to memories so you can search them later by place.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -646,7 +646,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Aivery;
+				INFOPLIST_KEY_CFBundleDisplayName = "AiVery Think";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "AiVery attaches your location to memories so you can search them later by place.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
