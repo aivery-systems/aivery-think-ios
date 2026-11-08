@@ -8,6 +8,8 @@ struct MessageBubbleView: View {
     var onBranch: (() -> Void)?
     var onDelete: (() -> Void)?
     var onMemoryTap: ((String) -> Void)?
+    // This message's queued memory writes (shown until the job's <memory_refs> land in content).
+    var queuedJobs: [QueuedMemoryJob] = []
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var settings = UserSettings.shared
 
@@ -58,11 +60,15 @@ struct MessageBubbleView: View {
                 if !message.isUser {
                     let notes = AgentNotes.extract(from: message.content).notes
                     let refs = MemoryRefs.extract(from: message.content).refs
-                    if !notes.isEmpty || !refs.isEmpty {
+                    let queued = refs.isEmpty ? queuedJobs.flatMap { job in job.items.map { (job.jobId, $0) } } : []
+                    if !notes.isEmpty || !refs.isEmpty || !queued.isEmpty {
                         VStack(alignment: .leading, spacing: 3) {
                             ForEach(notes, id: \.self) { AgentNoteChip(text: $0) }
                             ForEach(refs) { ref in
                                 MemorySavedChip(memory: ref) { onMemoryTap?(ref.id) }
+                            }
+                            ForEach(Array(queued.enumerated()), id: \.offset) { _, entry in
+                                QueuedMemoryChip(item: entry.1, onTap: onMemoryTap)
                             }
                         }
                         .padding(.top, 1)
@@ -209,6 +215,9 @@ struct MemorySavedChip: View {
                 Circle()
                     .fill(dotColor.opacity(0.75))
                     .frame(width: 7, height: 7)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(.green.opacity(0.8))
                 (Text("Memory saved").foregroundStyle(.secondary)
                     + Text(snippet.isEmpty ? "" : " · \(snippet)").foregroundStyle(.tertiary))
                     .font(.caption2)
@@ -218,6 +227,52 @@ struct MemorySavedChip: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// A memory queued for background writing: a pulsing placeholder until the job reaches it,
+/// then a saved (checkmark) chip, or a dimmed "not saved" chip when the validator skipped it.
+/// Mirrors QueuedMemoryChip in aivery-think/.../chat/chat-history.tsx.
+struct QueuedMemoryChip: View {
+    let item: QueuedMemoryItem
+    var onTap: ((String) -> Void)?
+    @State private var pulse = false
+
+    private var label: String {
+        switch item.status {
+        case .pending, .written: return "Saving memory"
+        case .rejected, .invalid, .quota: return "Not saved"
+        case .failed: return "Couldn't save"
+        }
+    }
+    private var snippet: String {
+        item.content.count > 60
+            ? String(item.content.prefix(60)).trimmingCharacters(in: .whitespaces) + "…"
+            : item.content
+    }
+
+    var body: some View {
+        if item.status == .written, let id = item.id {
+            MemorySavedChip(memory: WrittenMemoryRef(id: id, type: item.type, content: item.content)) { onTap?(id) }
+        } else {
+            let pending = item.status == .pending || item.status == .written
+            HStack(spacing: 5) {
+                Circle()
+                    .strokeBorder(Color.secondary.opacity(0.6), lineWidth: 1)
+                    .frame(width: 7, height: 7)
+                    .opacity(pending && pulse ? 0.3 : 1)
+                (Text(label).foregroundStyle(.secondary)
+                    + Text(snippet.isEmpty ? "" : " · \(snippet)").foregroundStyle(.tertiary).strikethrough(!pending))
+                    .font(.caption2)
+                    .lineLimit(1)
+            }
+            .opacity(pending ? 1 : 0.5)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .onAppear {
+                guard pending else { return }
+                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { pulse = true }
+            }
+        }
     }
 }
 

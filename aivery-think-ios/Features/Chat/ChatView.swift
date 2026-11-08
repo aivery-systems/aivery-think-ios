@@ -124,10 +124,17 @@ struct ChatView: View {
                                     onRetry: { Task { if msg.isUser { await vm.retryUser(msg) } else { await vm.regenerate(msg) } } },
                                     onBranch: msg.isUser ? nil : { Task { await vm.branch(from: msg) } },
                                     onDelete: { Task { await vm.delete(msg) } },
-                                    onMemoryTap: { id in Task { await vm.openMemory(id: id) } }
+                                    onMemoryTap: { id in Task { await vm.openMemory(id: id) } },
+                                    queuedJobs: msg.isUser ? [] : vm.memoryJobs.filter { $0.messageId == msg.id }
                                 )
                                 .id(msg.id)
                                 .transition(.scale(scale: 0.96, anchor: msg.isUser ? .bottomTrailing : .bottomLeading).combined(with: .opacity))
+                            }
+
+                            // Reply to a turn the user left mid-generation, still finishing server-side
+                            if vm.awaitingReply && !vm.isStreaming {
+                                ThinkingIndicatorView()
+                                    .id("awaiting-reply")
                             }
 
                             // Live streaming bubble

@@ -88,6 +88,11 @@ final class SSEClient: NSObject {
             let ref = try? JSONDecoder().decode(WrittenMemoryRef.self, from: Data(data.utf8))
             onEvent?(.memoryWritten(ref))
 
+        case "memory_queued":
+            if let job = try? JSONDecoder().decode(QueuedMemoryJob.self, from: Data(data.utf8)) {
+                onEvent?(.memoryQueued(job))
+            }
+
         case "response_complete":
             onEvent?(.responseComplete)
 

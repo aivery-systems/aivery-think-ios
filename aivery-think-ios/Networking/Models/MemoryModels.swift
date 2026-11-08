@@ -46,3 +46,61 @@ struct RetrievedMemory: Codable, Identifiable {
 
     var scorePercent: Int { Int((finalScore ?? relevance ?? 0) * 100) }
 }
+
+// A turn's memories queued as one Fabric memory_write job. Arrives in the memory_queued SSE
+// event (items all pending) and from GET /memory/write-queue/{jobId} as items land
+// (mirrors QueuedMemoryJob in aivery-think/.../chat/types.ts).
+struct QueuedMemoryJob: Codable, Identifiable, Equatable {
+    let jobId: String
+    let messageId: String?
+    var items: [QueuedMemoryItem]
+
+    var id: String { jobId }
+    var isSettled: Bool { items.allSatisfy { $0.status != .pending } }
+
+    enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case messageId = "message_id"
+        case items
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        jobId = try c.decode(String.self, forKey: .jobId)
+        messageId = try c.decodeIfPresent(String.self, forKey: .messageId)
+        // The event's items carry no index/status; position is the index, status is pending.
+        let raw = try c.decodeIfPresent([QueuedMemoryItem].self, forKey: .items) ?? []
+        items = raw.enumerated().map { offset, item in
+            var item = item
+            if item.index == nil { item.index = offset }
+            return item
+        }
+    }
+}
+
+struct QueuedMemoryItem: Codable, Equatable {
+    enum Status: String, Codable {
+        case pending, written, rejected, invalid, quota, failed
+    }
+
+    var index: Int?
+    let content: String
+    let type: String
+    var status: Status
+    var id: String?
+
+    enum CodingKeys: String, CodingKey { case index, content, type, status, id }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        index = try c.decodeIfPresent(Int.self, forKey: .index)
+        content = try c.decodeIfPresent(String.self, forKey: .content) ?? ""
+        type = try c.decodeIfPresent(String.self, forKey: .type) ?? ""
+        status = (try? c.decodeIfPresent(Status.self, forKey: .status)) ?? .pending
+        id = try c.decodeIfPresent(String.self, forKey: .id)
+    }
+}
+
+struct QueuedMemoryJobList: Codable {
+    let jobs: [QueuedMemoryJob]?
+}

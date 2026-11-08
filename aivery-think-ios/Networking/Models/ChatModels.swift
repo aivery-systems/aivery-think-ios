@@ -89,6 +89,8 @@ enum SSEEvent {
     case memoryResult([RetrievedMemory])
     // nil when the payload fails to decode — counter/haptic still fire, chip is skipped
     case memoryWritten(WrittenMemoryRef?)
+    // The turn's memories were queued for background writing (stream closes without waiting).
+    case memoryQueued(QueuedMemoryJob)
     case agentNote(String)
     // All visible text is out; only server-side memory writes remain before done.
     case responseComplete

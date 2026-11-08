@@ -16,6 +16,24 @@ final class ChatViewModel: ObservableObject {
     @Published var memoryPhase = false
     // Memories written during the in-flight turn — rendered as tappable chips.
     @Published var streamingMemories: [WrittenMemoryRef] = []
+    // Memories queued for background writing (this conversation). Chips render under the
+    // message they belong to — placeholder until the job reaches each item, then saved.
+    @Published var memoryJobs: [QueuedMemoryJob] = []
+    private var memoryJobsPoll: Task<Void, Never>?
+    // The open conversation ends in a recent prompt whose reply is still generating server-side
+    // (the user left mid-turn; Cortex finishes it detached). Shows the thinking indicator while
+    // the history is polled for the reply.
+    @Published var awaitingReply = false
+    private var awaitReplyTask: Task<Void, Never>?
+    // Background grace for an in-flight turn: iOS suspends the stream shortly after the app
+    // leaves the foreground, freezing the Live Activity mid-phase. This buys ~30s to finish.
+    private var turnBackgroundTask: UIBackgroundTaskIdentifier = .invalid
+    // Cortex has answered this turn at least once — so it has the prompt and will finish
+    // the turn even if the connection drops from here on.
+    private var turnAccepted = false
+    // Stored message id of the in-flight turn, from memory_queued — the local assistant
+    // message adopts it so queued chips attach before the server sync swaps ids.
+    private var streamingMessageId: String?
     // A chip was tapped; non-nil presents the memory detail sheet.
     @Published var selectedMemory: MemoryRecord?
     @Published var retrievalStages: [RetrievalStageEvent] = []
@@ -128,14 +146,46 @@ final class ChatViewModel: ObservableObject {
             return
         }
 
+        stopAwaitingReply()
         isStreaming = true
         streamingText = ""
         streamingThinking = ""
         streamingNotes = []
         streamingMemories = []
+        streamingMessageId = nil
         memoryPhase = false
         LiveActivityManager.shared.start(agentId: api.agentId)
+        turnAccepted = false
+        beginTurnBackgroundTask()
         startSSE(request: req)
+    }
+
+    private func beginTurnBackgroundTask() {
+        endTurnBackgroundTask()
+        turnBackgroundTask = UIApplication.shared.beginBackgroundTask(withName: "chat-turn") { [weak self] in
+            // Out of background time: the stream is about to be suspended. The turn keeps
+            // running on the server (Cortex finishes it detached), so don't leave the Live
+            // Activity frozen on "Recalling" — end it; the reply loads on return.
+            Task { @MainActor [weak self] in
+                LiveActivityManager.shared.end()
+                self?.endTurnBackgroundTask()
+            }
+        }
+    }
+
+    private func endTurnBackgroundTask() {
+        guard turnBackgroundTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(turnBackgroundTask)
+        turnBackgroundTask = .invalid
+    }
+
+    // The user left a chat mid-turn (opened another, or started a new one). The turn keeps
+    // running server-side; this client just stops following it.
+    private func detachFromTurn() {
+        sseClient.cancel()
+        isStreaming = false
+        LiveActivityManager.shared.end()
+        endTurnBackgroundTask()
     }
 
     func cancelStream() {
@@ -155,8 +205,21 @@ final class ChatViewModel: ObservableObject {
         sseClient.onHTTPError = { [weak self] code, message in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                let wasMidTurn = self.isStreaming && self.turnAccepted
                 self.isStreaming = false
                 LiveActivityManager.shared.end()
+                self.endTurnBackgroundTask()
+                // Connection dropped after the turn was under way (typically the app was
+                // suspended in the background): Cortex finishes and stores it regardless, so
+                // wait for the stored reply instead of reporting a network error.
+                if code < 0, wasMidTurn, let cid = self.conversationId {
+                    self.streamingText = ""
+                    self.streamingThinking = ""
+                    self.streamingNotes = []
+                    self.memoryPhase = false
+                    self.awaitReplyIfPending(conversationId: cid)
+                    return
+                }
                 switch code {
                 case 401: self.errorMessage = "Invalid API key (401). Check Settings."
                 case 403: self.errorMessage = "Forbidden (403). Your API key may lack required scopes."
@@ -171,6 +234,7 @@ final class ChatViewModel: ObservableObject {
     }
 
     private func handle(event: SSEEvent) {
+        turnAccepted = true
         switch event {
         case .chunk(let text):
             if streamingText.isEmpty { LiveActivityManager.shared.update(phase: "Responding") }
@@ -191,6 +255,12 @@ final class ChatViewModel: ObservableObject {
             if let ref, !streamingMemories.contains(where: { $0.id == ref.id }) {
                 streamingMemories.append(ref)
             }
+        case .memoryQueued(let job):
+            if job.messageId != nil { streamingMessageId = job.messageId }
+            if !memoryJobs.contains(where: { $0.jobId == job.jobId }) {
+                memoryJobs.append(job)
+            }
+            pollMemoryJobs()
         case .responseComplete:
             memoryPhase = true
             LiveActivityManager.shared.update(phase: "Saving memories")
@@ -211,13 +281,14 @@ final class ChatViewModel: ObservableObject {
         guard isStreaming else { return }
         isStreaming = false
         LiveActivityManager.shared.end()
+        endTurnBackgroundTask()
 
         if !streamingText.isEmpty {
             // Embed notes + written-memory refs so the chips survive reload.
             let content = MemoryRefs.embed(streamingMemories,
                                            into: AgentNotes.embed(streamingNotes, into: streamingText))
             messages.append(MessageRecord(
-                id: UUID().uuidString,
+                id: streamingMessageId ?? UUID().uuidString,
                 role: "assistant",
                 content: content,
                 created_at: ISO8601DateFormatter().string(from: Date())
@@ -298,12 +369,101 @@ final class ChatViewModel: ObservableObject {
         } catch {
             messages = []
         }
+        await restoreMemoryJobs(conversationId: cid)
+        awaitReplyIfPending(conversationId: cid)
+    }
+
+    private func awaitReplyIfPending(conversationId cid: String) {
+        stopAwaitingReply()
+        guard let last = messages.last, last.isUser,
+              let sent = last.date, Date().timeIntervalSince(sent) < 300 else { return }
+        awaitingReply = true
+        awaitReplyTask = Task { [weak self] in
+            // Up to ~3 minutes: long enough for a slow model, short enough that a failed
+            // turn doesn't leave the indicator spinning.
+            for _ in 0..<90 {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                guard let self, !Task.isCancelled, !self.isStreaming, self.conversationId == cid else { return }
+                guard let server: [MessageRecord] = try? await self.api.request("/api/conversations/\(cid)/messages") else { continue }
+                if let last = server.last, !last.isUser {
+                    self.messages = server
+                    await self.restoreMemoryJobs(conversationId: cid)
+                    break
+                }
+            }
+            self?.awaitingReply = false
+        }
+    }
+
+    private func stopAwaitingReply() {
+        awaitReplyTask?.cancel()
+        awaitReplyTask = nil
+        awaitingReply = false
+    }
+
+    // MARK: - Queued memory writes
+
+    // A reload mid-write would otherwise lose the placeholders: fetch the conversation's
+    // unfinished jobs and resume polling them.
+    private func restoreMemoryJobs(conversationId cid: String) async {
+        memoryJobs = []
+        guard let list: QueuedMemoryJobList = try? await api.request("/memory/write-queue/conversation/\(cid)"),
+              conversationId == cid else { return }
+        memoryJobs = list.jobs ?? []
+        pollMemoryJobs()
+    }
+
+    private func pollMemoryJobs() {
+        guard memoryJobsPoll == nil, memoryJobs.contains(where: { !$0.isSettled }) else { return }
+        memoryJobsPoll = Task { [weak self] in
+            var failures: [String: Int] = [:]
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                guard let self else { return }
+                let pending = self.memoryJobs.filter { !$0.isSettled }
+                if pending.isEmpty { break }
+                for job in pending {
+                    do {
+                        let updated: QueuedMemoryJob = try await self.api.request("/memory/write-queue/\(job.jobId)")
+                        failures[job.jobId] = nil
+                        self.applyMemoryJobUpdate(updated)
+                    } catch {
+                        // Transient errors retry; a job that keeps failing (e.g. deleted) is given up on.
+                        let count = (failures[job.jobId] ?? 0) + 1
+                        failures[job.jobId] = count
+                        if count >= 5 { self.markMemoryJobFailed(job.jobId) }
+                    }
+                }
+            }
+            self?.memoryJobsPoll = nil
+        }
+    }
+
+    private func applyMemoryJobUpdate(_ updated: QueuedMemoryJob) {
+        guard let idx = memoryJobs.firstIndex(where: { $0.jobId == updated.jobId }) else { return }
+        let previous = memoryJobs[idx]
+        let newlyWritten = updated.items.filter { item in
+            item.status == .written && previous.items.first(where: { $0.index == item.index })?.status != .written
+        }.count
+        var merged = updated
+        if merged.items.isEmpty { merged.items = previous.items }
+        memoryJobs[idx] = merged
+        if newlyWritten > 0 {
+            plexusWrittenCount += newlyWritten
+            Haptics.success()
+        }
+    }
+
+    private func markMemoryJobFailed(_ jobId: String) {
+        guard let idx = memoryJobs.firstIndex(where: { $0.jobId == jobId }) else { return }
+        for i in memoryJobs[idx].items.indices where memoryJobs[idx].items[i].status == .pending {
+            memoryJobs[idx].items[i].status = .failed
+        }
     }
 
     // Open an existing conversation from the list.
     func open(conversation: Conversation) async {
-        sseClient.cancel()
-        isStreaming = false
+        detachFromTurn()
         conversationId = conversation.id
         conversationTitle = conversation.title
         conversationRecallOnly = conversation.recall_only
@@ -398,7 +558,7 @@ final class ChatViewModel: ObservableObject {
     }
 
     func startNewChat(recallOnly: Bool = false) {
-        sseClient.cancel()
+        detachFromTurn()
         messages = []
         conversationId = nil   // a fresh conversation is created on the next message
         conversationTitle = nil
@@ -411,6 +571,10 @@ final class ChatViewModel: ObservableObject {
         isStreaming = false
         retrievalStages = []
         retrievedMemories = []
+        memoryJobsPoll?.cancel()
+        memoryJobsPoll = nil
+        memoryJobs = []
+        stopAwaitingReply()
         Haptics.tapRigid()
     }
 
