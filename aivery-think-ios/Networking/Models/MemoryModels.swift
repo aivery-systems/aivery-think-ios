@@ -56,7 +56,8 @@ struct QueuedMemoryJob: Codable, Identifiable, Equatable {
     var items: [QueuedMemoryItem]
 
     var id: String { jobId }
-    var isSettled: Bool { items.allSatisfy { $0.status != .pending } }
+    // Paused items still wait (resumed from the queue manager), so keep polling them.
+    var isSettled: Bool { items.allSatisfy { $0.status != .pending && $0.status != .paused } }
 
     enum CodingKeys: String, CodingKey {
         case jobId = "job_id"
@@ -80,7 +81,7 @@ struct QueuedMemoryJob: Codable, Identifiable, Equatable {
 
 struct QueuedMemoryItem: Codable, Equatable {
     enum Status: String, Codable {
-        case pending, written, rejected, invalid, quota, failed
+        case pending, paused, written, rejected, invalid, quota, failed, deleted
     }
 
     var index: Int?
@@ -103,4 +104,25 @@ struct QueuedMemoryItem: Codable, Equatable {
 
 struct QueuedMemoryJobList: Codable {
     let jobs: [QueuedMemoryJob]?
+}
+
+// Queue manager (GET /memory/write-queue/agent/{agentId}): memories still waiting to be
+// validated and written. Mirrors MemoryQueue in aivery-think/.../sidebar/memory-queue.tsx.
+struct MemoryQueueState: Codable {
+    let paused: Bool
+    let items: [MemoryQueueEntry]?
+}
+
+struct MemoryQueueEntry: Codable, Identifiable, Equatable {
+    let jobId: String
+    let content: String?
+    let type: String?
+    let status: String   // queued | running | retrying | paused
+
+    var id: String { jobId }
+
+    enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case content, type, status
+    }
 }

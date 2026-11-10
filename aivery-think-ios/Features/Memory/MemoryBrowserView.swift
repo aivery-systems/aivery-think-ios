@@ -2,8 +2,31 @@ import SwiftUI
 
 struct MemoryBrowserView: View {
     @StateObject private var vm = MemoryBrowserViewModel()
+    private enum Tab { case saved, queue }
+    @State private var tab: Tab = .saved
+
     var body: some View {
         NavigationStack {
+            VStack(spacing: 0) {
+                Picker("View", selection: $tab) {
+                    Text("Saved").tag(Tab.saved)
+                    Text("Queue").tag(Tab.queue)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+
+                if tab == .saved {
+                    savedList
+                } else {
+                    MemoryQueueView()
+                }
+            }
+            .navigationTitle("Memories")
+        }
+    }
+
+    private var savedList: some View {
             List {
                 // Type filter
                 Section {
@@ -52,9 +75,7 @@ struct MemoryBrowserView: View {
                 }
             }
             .searchable(text: $vm.searchText, prompt: "Search memories")
-            .navigationTitle("Memories")
             .task { await vm.load() }
-        }
     }
 
     private func filterChip(_ label: String) -> some View {

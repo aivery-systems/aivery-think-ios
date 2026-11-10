@@ -241,7 +241,8 @@ struct QueuedMemoryChip: View {
     private var label: String {
         switch item.status {
         case .pending, .written: return "Saving memory"
-        case .rejected, .invalid, .quota: return "Not saved"
+        case .paused: return "Queued"
+        case .rejected, .invalid, .quota, .deleted: return "Not saved"
         case .failed: return "Couldn't save"
         }
     }
@@ -255,7 +256,7 @@ struct QueuedMemoryChip: View {
         if item.status == .written, let id = item.id {
             MemorySavedChip(memory: WrittenMemoryRef(id: id, type: item.type, content: item.content)) { onTap?(id) }
         } else {
-            let pending = item.status == .pending || item.status == .written
+            let pending = item.status == .pending || item.status == .paused || item.status == .written
             HStack(spacing: 5) {
                 Circle()
                     .strokeBorder(Color.secondary.opacity(0.6), lineWidth: 1)
@@ -269,7 +270,7 @@ struct QueuedMemoryChip: View {
             .opacity(pending ? 1 : 0.5)
             .frame(maxWidth: .infinity, alignment: .leading)
             .onAppear {
-                guard pending else { return }
+                guard pending, item.status != .paused else { return }
                 withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { pulse = true }
             }
         }
