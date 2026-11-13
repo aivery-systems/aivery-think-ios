@@ -198,8 +198,13 @@ final class APIClient {
         return headers
     }
 
-    func request<T: Decodable>(_ path: String, method: String = "GET", body: (any Encodable)? = nil) async throws -> T {
-        let url = baseURL.appendingPathComponent(path)
+    func request<T: Decodable>(_ path: String, method: String = "GET", body: (any Encodable)? = nil, query: [URLQueryItem] = []) async throws -> T {
+        // Query items go through URLComponents — appendingPathComponent would percent-encode a "?".
+        var url = baseURL.appendingPathComponent(path)
+        if !query.isEmpty, var comps = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            comps.queryItems = query
+            url = comps.url ?? url
+        }
         var req = URLRequest(url: url)
         req.httpMethod = method
         for (k, v) in commonHeaders() { req.setValue(v, forHTTPHeaderField: k) }

@@ -4,6 +4,9 @@ struct MemoryBrowserView: View {
     @StateObject private var vm = MemoryBrowserViewModel()
     private enum Tab { case saved, queue }
     @State private var tab: Tab = .saved
+    // Checklist mode for bulk mark-stale / restore.
+    @State private var editMode: EditMode = .inactive
+    @State private var selection = Set<String>()
 
     var body: some View {
         NavigationStack {
@@ -23,11 +26,49 @@ struct MemoryBrowserView: View {
                 }
             }
             .navigationTitle("Memories")
+            .toolbar {
+                if tab == .saved {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(editMode.isEditing ? "Done" : "Select") {
+                            withAnimation {
+                                editMode = editMode.isEditing ? .inactive : .active
+                                selection = []
+                            }
+                        }
+                    }
+                    if editMode.isEditing {
+                        ToolbarItemGroup(placement: .bottomBar) {
+                            let chosen = vm.displayed.filter { selection.contains($0.id) }
+                            Button(selection.count == vm.displayed.count && !vm.displayed.isEmpty ? "Clear" : "Select all") {
+                                selection = selection.count == vm.displayed.count ? [] : Set(vm.displayed.map(\.id))
+                            }
+                            Spacer()
+                            Button("Mark stale") { bulk(stale: true) }
+                                .tint(.orange)
+                                .disabled(!chosen.contains { !$0.isStale })
+                            Button("Restore") { bulk(stale: false) }
+                                .tint(.green)
+                                .disabled(!chosen.contains { $0.isStale })
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func bulk(stale: Bool) {
+        let ids = selection
+        Task {
+            await vm.setStale(ids, stale: stale)
+            withAnimation {
+                selection = []
+                editMode = .inactive
+            }
         }
     }
 
     private var savedList: some View {
-            List {
+            List(selection: $selection) {
                 // Type filter
                 Section {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -74,8 +115,11 @@ struct MemoryBrowserView: View {
                     }
                 }
             }
+            .environment(\.editMode, $editMode)
             .searchable(text: $vm.searchText, prompt: "Search memories")
             .task { await vm.load() }
+            // Stale memories are only fetched when asked for.
+            .onChange(of: vm.showStale) { Task { await vm.load() } }
     }
 
     private func filterChip(_ label: String) -> some View {

@@ -28,8 +28,12 @@ final class MemoryBrowserViewModel: ObservableObject {
         loadError = nil
         defer { loading = false }
         do {
-            // /api/memories returns a bare JSON array, not a wrapper object
-            let result: [MemoryRecord] = try await APIClient.shared.request("/api/memories")
+            // /api/memories returns a bare JSON array, not a wrapper object. The server leaves
+            // stale memories out unless asked — "Show stale" used to filter a list that never
+            // contained any.
+            let result: [MemoryRecord] = try await APIClient.shared.request(
+                "/api/memories",
+                query: showStale ? [URLQueryItem(name: "includeStale", value: "true")] : [])
             memories = result
         } catch APIError.unauthorized {
             loadError = "401 — check your API key in Settings"
@@ -48,26 +52,40 @@ final class MemoryBrowserViewModel: ObservableObject {
     }
 
     func restore(_ id: String) async {
-        struct Empty: Decodable {}
         do {
-            let _: Empty = try await APIClient.shared.request(
-                "/api/memories/\(id)/restore",
-                method: "PATCH"
-            )
-            if let idx = memories.firstIndex(where: { $0.id == id }) {
-                let old = memories[idx]
-                memories[idx] = MemoryRecord(
-                    id: old.id,
-                    memoryType: old.memoryType,
-                    content: old.content,
-                    createdAt: old.createdAt,
-                    lastAccessedAt: old.lastAccessedAt,
-                    isStale: false,
-                    clusterId: old.clusterId,
-                    relevance: old.relevance
-                )
-            }
+            // 204 No Content — decoding a body here used to throw, so the row never updated.
+            try await APIClient.shared.requestEmpty("/api/memories/\(id)/restore", method: "PATCH")
+            setLocalStale([id], false)
         } catch { /* surface error */ }
+    }
+
+    // Checklist mode: mark many stale (out of retrieval, reversible) or restore them.
+    func setStale(_ ids: Set<String>, stale: Bool) async {
+        guard !ids.isEmpty else { return }
+        struct Body: Encodable { let ids: [String]; let stale: Bool }
+        struct Changed: Decodable { let changed: Int }
+        do {
+            let _: Changed = try await APIClient.shared.request(
+                "/api/memories/stale", method: "POST", body: Body(ids: Array(ids), stale: stale))
+            setLocalStale(ids, stale)
+            Haptics.tapMedium()
+        } catch { /* surface error */ }
+    }
+
+    private func setLocalStale(_ ids: Set<String>, _ stale: Bool) {
+        memories = memories.map { old in
+            guard ids.contains(old.id) else { return old }
+            return MemoryRecord(
+                id: old.id,
+                memoryType: old.memoryType,
+                content: old.content,
+                createdAt: old.createdAt,
+                lastAccessedAt: old.lastAccessedAt,
+                isStale: stale,
+                clusterId: old.clusterId,
+                relevance: old.relevance
+            )
+        }
     }
 
     // Matches Fabric API: record UpdateMemoryRequest(string Content, double Relevance, string Type)
