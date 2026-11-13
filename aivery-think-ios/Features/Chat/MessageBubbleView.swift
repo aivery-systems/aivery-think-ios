@@ -32,10 +32,8 @@ struct MessageBubbleView: View {
                 // Thinking disclosure (assistant only, first bubble of a run)
                 if !message.isUser, isFirstInGroup, settings.showThinking, let thinking = extractThinking(from: message.content), !thinking.isEmpty {
                     DisclosureGroup {
-                        Text(thinking)
+                        MarkdownContentView(text: thinking, style: .secondary)
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.top, 4)
                     } label: {
                         HStack(spacing: 6) {
@@ -303,10 +301,8 @@ struct StreamingBubbleView: View {
             VStack(alignment: .leading, spacing: 4) {
                 if !displayThinking.isEmpty {
                     DisclosureGroup {
-                        Text(displayThinking)
+                        MarkdownContentView(text: displayThinking, style: .secondary)
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.top, 4)
                     } label: {
                         HStack(spacing: 6) {

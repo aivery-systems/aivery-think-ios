@@ -42,6 +42,8 @@ private func parseSegments(_ raw: String) -> [MDSegment] {
 
 struct MarkdownContentView: View {
     let text: String
+    // Thoughts render dimmed (.secondary); replies stay .primary.
+    var style: HierarchicalShapeStyle = .primary
 
     private var segments: [MDSegment] { parseSegments(text) }
 
@@ -68,12 +70,12 @@ struct MarkdownContentView: View {
             options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
         ) {
             Text(attr)
-                .foregroundStyle(.primary)
+                .foregroundStyle(style)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
             Text(trimmed)
-                .foregroundStyle(.primary)
+                .foregroundStyle(style)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
