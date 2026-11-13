@@ -4,6 +4,7 @@ struct SettingsView: View {
     @Binding var isSignedIn: Bool
     @StateObject private var settings = UserSettings.shared
     @StateObject private var conn = ConnectionMonitor.shared
+    @StateObject private var capabilities = ModelCapabilitiesStore.shared
 
     @State private var agentId = APIClient.shared.agentId
     @State private var showSignOutConfirm = false
@@ -59,8 +60,18 @@ struct SettingsView: View {
                         HStack { icon("brain", tint: .teal); Text("Show thinking") }
                     }
                     Toggle(isOn: $settings.enableReasoning) {
-                        HStack { icon("sparkles", tint: .purple); Text("Enable reasoning") }
+                        HStack {
+                            icon("sparkles", tint: .purple)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Enable reasoning")
+                                if !capabilities.supportsThinking {
+                                    Text("\(capabilities.capabilities?.model ?? "This model") doesn't support reasoning")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
                     }
+                    .disabled(!capabilities.supportsThinking)
                 }
 
                 // ── Visual effects ────────────────────────────────────────

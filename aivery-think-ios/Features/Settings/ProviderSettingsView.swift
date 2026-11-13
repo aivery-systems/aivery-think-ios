@@ -84,6 +84,7 @@ struct ProviderSettingsView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     persist(); Haptics.success(); dismiss()
+                    Task { await ModelCapabilitiesStore.shared.refresh() }
                 } label: {
                     if save == .saving { ProgressView() } else { Text("Save").fontWeight(.semibold) }
                 }

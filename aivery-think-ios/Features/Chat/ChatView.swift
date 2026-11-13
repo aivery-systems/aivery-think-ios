@@ -78,6 +78,7 @@ struct ChatView: View {
     // guards in the VM no-op on ids outside it, the HTTP calls still fire.
     @StateObject private var chatMemoryVM = MemoryBrowserViewModel()
     @StateObject private var conn = ConnectionMonitor.shared
+    @StateObject private var capabilities = ModelCapabilitiesStore.shared
     @ObservedObject private var settings = UserSettings.shared
     @State private var inputText = ""
     @State private var showScrollToBottom = false
@@ -258,6 +259,7 @@ struct ChatView: View {
             }
             .toolbarBackground(.thinMaterial, for: .navigationBar)
             .task { await vm.loadHistory() }
+            .task { await capabilities.refresh() }
             .task { vm.requestPermissionsIfNeeded() }
             .task {
                 while !Task.isCancelled {
@@ -296,30 +298,32 @@ struct ChatView: View {
     private var inputBar: some View {
         GlassEffectContainerCompat(spacing: 8) {
             HStack(alignment: .bottom, spacing: 8) {
-                // Photo picker button
-                PhotosPicker(selection: $photoItem, matching: .images) {
-                    ZStack {
-                        if let img = selectedImage {
-                            Image(uiImage: img)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 40, height: 40)
-                                .clipShape(Circle())
-                        } else {
-                            Image(systemName: "photo")
-                                .font(.system(size: 19))
-                                .foregroundStyle(settings.isAivery ? AnyShapeStyle(aiveryAccent) : AnyShapeStyle(.secondary))
-                                .frame(width: 40, height: 40)
+                // Photo picker button — only for models that take image input
+                if capabilities.supportsVision {
+                    PhotosPicker(selection: $photoItem, matching: .images) {
+                        ZStack {
+                            if let img = selectedImage {
+                                Image(uiImage: img)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 40, height: 40)
+                                    .clipShape(Circle())
+                            } else {
+                                Image(systemName: "photo")
+                                    .font(.system(size: 19))
+                                    .foregroundStyle(settings.isAivery ? AnyShapeStyle(aiveryAccent) : AnyShapeStyle(.secondary))
+                                    .frame(width: 40, height: 40)
+                            }
                         }
                     }
-                }
-                .glassEffectCompat(interactive: true, in: .circle)
-                .onChange(of: photoItem) {
-                    Task {
-                        if let data = try? await photoItem?.loadTransferable(type: Data.self),
-                           let img = UIImage(data: data) {
-                            selectedImage = img
-                            Haptics.tapLight()
+                    .glassEffectCompat(interactive: true, in: .circle)
+                    .onChange(of: photoItem) {
+                        Task {
+                            if let data = try? await photoItem?.loadTransferable(type: Data.self),
+                               let img = UIImage(data: data) {
+                                selectedImage = img
+                                Haptics.tapLight()
+                            }
                         }
                     }
                 }
@@ -396,7 +400,8 @@ struct ChatView: View {
     }
 
     private var canSend: Bool {
-        !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedImage != nil
+        !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || (selectedImage != nil && capabilities.supportsVision)
     }
 
     // Show a timestamp above the first message and whenever there's a >15-min gap.
@@ -409,7 +414,7 @@ struct ChatView: View {
 
     private func send() async {
         let text = inputText
-        let image = selectedImage
+        let image = capabilities.supportsVision ? selectedImage : nil
         inputText = ""
         selectedImage = nil
         photoItem = nil

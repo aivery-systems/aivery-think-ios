@@ -63,7 +63,7 @@ struct MarkdownContentView: View {
 
     @ViewBuilder
     private func inlineText(_ s: String) -> some View {
-        let trimmed = s.trimmingCharacters(in: .newlines)
+        let trimmed = LatexText.render(s.trimmingCharacters(in: .newlines))
         if trimmed.isEmpty { EmptyView() }
         else if let attr = try? AttributedString(
             markdown: trimmed,

@@ -40,7 +40,8 @@ final class ChatViewModel: ObservableObject {
     @Published var retrievedMemories: [RetrievedMemory] = []
     @Published var showRetrievalSheet = false
     @Published var errorMessage: String?
-    private var thinkMode: Bool { UserSettings.shared.enableReasoning }
+    // Reasoning only goes out when the model can do it (capabilities from Cortex).
+    private var thinkMode: Bool { UserSettings.shared.enableReasoning && ModelCapabilitiesStore.shared.supportsThinking }
     // Plexus triggers — each increment fires an effect in PlexusView
     @Published var plexusRetrievedCount: Int = 0
     @Published var plexusWrittenCount: Int = 0
@@ -135,7 +136,8 @@ final class ChatViewModel: ObservableObject {
                 systemPrompt: ChatPrefsLocal.systemPrompt,
                 chatStyle: ChatPrefsLocal.chatStyle,
                 provider: ProviderSettingsLocal.load(),
-                image: image,
+                // Never send an image the model would reject (Ollama 400s on non-vision models).
+                image: ModelCapabilitiesStore.shared.supportsVision ? image : nil,
                 latitude: coordinate?.lat,
                 longitude: coordinate?.lon,
                 skipMemoryWrite: conversationRecallOnly
