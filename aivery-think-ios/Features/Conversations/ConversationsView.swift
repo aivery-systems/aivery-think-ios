@@ -32,31 +32,11 @@ struct ConversationsView: View {
 
                 if vm.loading {
                     ProgressView().frame(maxWidth: .infinity)
+                } else if vm.pinned.isEmpty {
+                    rows(vm.recent)
                 } else {
-                    ForEach(vm.conversations) { conv in
-                        Button {
-                            Task {
-                                await chatVM.open(conversation: conv)
-                                Haptics.tapLight()
-                                selectedTab = 0
-                            }
-                        } label: {
-                            conversationRow(conv)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .buttonStyle(.plain)
-                        .contentShape(Rectangle())
-                        .swipeActions(edge: .trailing) {
-                            Button("Delete", systemImage: "trash", role: .destructive) {
-                                Task { await vm.delete(conv.id) }
-                            }
-                            Button("Rename", systemImage: "pencil") {
-                                renameTarget = conv
-                                renameText = conv.displayTitle
-                            }
-                            .tint(.indigo)
-                        }
-                    }
+                    Section("Pinned") { rows(vm.pinned) }
+                    Section("Recent") { rows(vm.recent) }
                 }
             }
             .navigationTitle("History")
@@ -75,6 +55,47 @@ struct ConversationsView: View {
         }
     }
 
+    @ViewBuilder
+    private func rows(_ list: [Conversation]) -> some View {
+        ForEach(list) { conv in
+            Button {
+                Task {
+                    await chatVM.open(conversation: conv)
+                    Haptics.tapLight()
+                    selectedTab = 0
+                }
+            } label: {
+                conversationRow(conv)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .swipeActions(edge: .trailing) {
+                Button("Delete", systemImage: "trash", role: .destructive) {
+                    Task { await vm.delete(conv.id) }
+                }
+                Button("Rename", systemImage: "pencil") {
+                    renameTarget = conv
+                    renameText = conv.displayTitle
+                }
+                .tint(.indigo)
+            }
+            .swipeActions(edge: .leading) {
+                Button(conv.isPinned ? "Unpin" : "Pin",
+                       systemImage: conv.isPinned ? "pin.slash" : "pin") {
+                    Task { await vm.togglePin(conv) }
+                }
+                .tint(.orange)
+            }
+            .contextMenu {
+                Button(conv.isPinned ? "Unpin" : "Pin",
+                       systemImage: conv.isPinned ? "pin.slash" : "pin") {
+                    Task { await vm.togglePin(conv) }
+                }
+            }
+        }
+    }
+
     private func conversationRow(_ conv: Conversation) -> some View {
         HStack(spacing: 8) {
             if conv.isBranch {
@@ -83,9 +104,17 @@ struct ConversationsView: View {
                     .foregroundStyle(.secondary)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(conv.displayTitle)
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
+                HStack(spacing: 4) {
+                    if conv.isPinned {
+                        Image(systemName: "pin.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                            .accessibilityLabel("Pinned")
+                    }
+                    Text(conv.displayTitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                }
                 HStack(spacing: 4) {
                     if conv.recall_only {
                         Label("Recall Only", systemImage: "eye.slash")

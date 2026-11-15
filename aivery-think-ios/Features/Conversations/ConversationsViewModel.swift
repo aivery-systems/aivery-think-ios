@@ -25,9 +25,35 @@ final class ConversationsViewModel: ObservableObject {
                 conversations[idx] = Conversation(
                     id: old.id, agent_id: old.agent_id, title: title,
                     created_at: old.created_at, parent_message_id: old.parent_message_id,
-                    recall_only: old.recall_only)
+                    recall_only: old.recall_only, pinned_at: old.pinned_at)
             }
         } catch { /* surface if needed */ }
+    }
+
+    var pinned: [Conversation] { conversations.filter(\.isPinned) }
+    var recent: [Conversation] { conversations.filter { !$0.isPinned } }
+
+    func togglePin(_ conv: Conversation) async {
+        struct Body: Encodable { let pinned: Bool }
+        struct Result: Decodable { let pinned_at: String? }
+        do {
+            let result: Result = try await APIClient.shared.request(
+                "/api/conversations/\(conv.id)/pin", method: "PATCH", body: Body(pinned: !conv.isPinned))
+            if let idx = conversations.firstIndex(where: { $0.id == conv.id }) {
+                conversations[idx].pinned_at = result.pinned_at
+            }
+            sortLikeServer()
+            Haptics.tapLight()
+        } catch { /* surface if needed */ }
+    }
+
+    // Same order as the API: pinned first (most recently pinned on top), then newest first.
+    private func sortLikeServer() {
+        conversations.sort { a, b in
+            if a.isPinned != b.isPinned { return a.isPinned }
+            if let pa = a.pinned_at, let pb = b.pinned_at, pa != pb { return pa > pb }
+            return a.created_at > b.created_at
+        }
     }
 
     func delete(_ id: String) async {
