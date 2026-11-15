@@ -59,6 +59,7 @@ struct ConversationsView: View {
     private func rows(_ list: [Conversation]) -> some View {
         ForEach(list) { conv in
             Button {
+                vm.markReadLocally(conv.id)
                 Task {
                     await chatVM.open(conversation: conv)
                     Haptics.tapLight()
@@ -105,6 +106,12 @@ struct ConversationsView: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
+                    if conv.unread == true {
+                        Circle()
+                            .fill(Color.accentColor)
+                            .frame(width: 7, height: 7)
+                            .accessibilityLabel("Unread")
+                    }
                     if conv.isPinned {
                         Image(systemName: "pin.fill")
                             .font(.caption2)
@@ -112,7 +119,7 @@ struct ConversationsView: View {
                             .accessibilityLabel("Pinned")
                     }
                     Text(conv.displayTitle)
-                        .font(.subheadline)
+                        .font(.subheadline.weight(conv.unread == true ? .bold : .regular))
                         .foregroundStyle(.primary)
                 }
                 HStack(spacing: 4) {
@@ -122,9 +129,9 @@ struct ConversationsView: View {
                             .labelStyle(.titleAndIcon)
                             .foregroundStyle(.secondary)
                     }
-                    Text(relativeDate(conv.created_at))
+                    Text(relativeDate(conv.last_activity_at ?? conv.created_at))
                         .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(conv.unread == true ? .secondary : .tertiary)
                 }
             }
             Spacer()

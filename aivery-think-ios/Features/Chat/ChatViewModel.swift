@@ -300,6 +300,7 @@ final class ChatViewModel: ObservableObject {
             // Quietly swap local-id messages for server-id ones so Retry/Branch/Delete work.
             let turnNotes = streamingNotes
             let turnRefs = streamingMemories
+            if let cid = conversationId { markRead(cid) }
             Task { await syncMessagesFromServer(expecting: messages.count, notes: turnNotes, refs: turnRefs) }
         } else if streamingThinking.isEmpty && errorMessage == nil {
             errorMessage = "No response received. Check Cortex is running and your provider/model in Settings.\nCortex: \(api.cortexURL)"
@@ -368,6 +369,7 @@ final class ChatViewModel: ObservableObject {
         do {
             let msgs: [MessageRecord] = try await api.request("/api/conversations/\(cid)/messages")
             messages = msgs
+            markRead(cid)
         } catch {
             messages = []
         }
@@ -389,6 +391,7 @@ final class ChatViewModel: ObservableObject {
                 guard let server: [MessageRecord] = try? await self.api.request("/api/conversations/\(cid)/messages") else { continue }
                 if let last = server.last, !last.isUser {
                     self.messages = server
+                    self.markRead(cid)
                     await self.restoreMemoryJobs(conversationId: cid)
                     break
                 }
@@ -407,6 +410,12 @@ final class ChatViewModel: ObservableObject {
 
     // A reload mid-write would otherwise lose the placeholders: fetch the conversation's
     // unfinished jobs and resume polling them.
+    // The chat on screen is never "unread" in History: stamp it read whenever its messages load
+    // or a reply lands while it's open. Fire-and-forget — a missed stamp only leaves it bold.
+    private func markRead(_ cid: String) {
+        Task { try? await api.requestEmpty("/api/conversations/\(cid)/read", method: "PATCH") }
+    }
+
     private func restoreMemoryJobs(conversationId cid: String) async {
         memoryJobs = []
         guard let list: QueuedMemoryJobList = try? await api.request("/memory/write-queue/conversation/\(cid)"),
