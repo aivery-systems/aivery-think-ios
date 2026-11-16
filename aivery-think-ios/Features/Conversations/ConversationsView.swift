@@ -42,6 +42,14 @@ struct ConversationsView: View {
             .navigationTitle("History")
             .task { await vm.load() }
             .onAppear { Task { await vm.load() } }
+            .alert("Something went wrong", isPresented: Binding(
+                get: { vm.errorMessage != nil },
+                set: { if !$0 { vm.errorMessage = nil } })
+            ) {
+                Button("OK", role: .cancel) { vm.errorMessage = nil }
+            } message: {
+                Text(vm.errorMessage ?? "")
+            }
             .alert("Rename", isPresented: .constant(renameTarget != nil)) {
                 TextField("Title", text: $renameText)
                 Button("Save") {

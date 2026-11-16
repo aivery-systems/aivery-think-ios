@@ -5,6 +5,8 @@ import Combine
 final class ConversationsViewModel: ObservableObject {
     @Published var conversations: [Conversation] = []
     @Published var loading = false
+    // Shown as an alert — a failed action must not look like a dead button.
+    @Published var errorMessage: String?
 
     func load() async {
         loading = true
@@ -45,7 +47,12 @@ final class ConversationsViewModel: ObservableObject {
             }
             sortLikeServer()
             Haptics.tapLight()
-        } catch { /* surface if needed */ }
+        } catch APIError.notFound {
+            // An API older than pinning has no /pin route.
+            errorMessage = "Couldn't \(conv.isPinned ? "unpin" : "pin") this chat — the server doesn't support pinning yet. Restart or update the Aivery API."
+        } catch {
+            errorMessage = "Couldn't \(conv.isPinned ? "unpin" : "pin") this chat: \(error.localizedDescription)"
+        }
     }
 
     // Opening a chat marks it read server-side (ChatViewModel); reflect that here right away.
