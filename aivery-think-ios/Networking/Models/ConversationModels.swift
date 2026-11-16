@@ -8,8 +8,15 @@ struct Conversation: Codable, Identifiable {
     let created_at: String
     let parent_message_id: String?
     let recall_only: Bool
+    // ISO time it was pinned (text, like created_at); nil = not pinned. Absent from older APIs.
+    var pinned_at: String? = nil
+    // Newest message (or creation) time — the list's sort key and the time shown.
+    var last_activity_at: String? = nil
+    // An assistant reply arrived since the chat was last viewed.
+    var unread: Bool? = nil
 
     var displayTitle: String { title?.isEmpty == false ? title! : "New Chat" }
+    var isPinned: Bool { pinned_at != nil }
     var isBranch: Bool { parent_message_id != nil }
 }
 

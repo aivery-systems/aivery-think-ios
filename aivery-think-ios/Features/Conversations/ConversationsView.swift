@@ -32,36 +32,24 @@ struct ConversationsView: View {
 
                 if vm.loading {
                     ProgressView().frame(maxWidth: .infinity)
+                } else if vm.pinned.isEmpty {
+                    rows(vm.recent)
                 } else {
-                    ForEach(vm.conversations) { conv in
-                        Button {
-                            Task {
-                                await chatVM.open(conversation: conv)
-                                Haptics.tapLight()
-                                selectedTab = 0
-                            }
-                        } label: {
-                            conversationRow(conv)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .buttonStyle(.plain)
-                        .contentShape(Rectangle())
-                        .swipeActions(edge: .trailing) {
-                            Button("Delete", systemImage: "trash", role: .destructive) {
-                                Task { await vm.delete(conv.id) }
-                            }
-                            Button("Rename", systemImage: "pencil") {
-                                renameTarget = conv
-                                renameText = conv.displayTitle
-                            }
-                            .tint(.indigo)
-                        }
-                    }
+                    Section("Pinned") { rows(vm.pinned) }
+                    Section("Recent") { rows(vm.recent) }
                 }
             }
             .navigationTitle("History")
             .task { await vm.load() }
             .onAppear { Task { await vm.load() } }
+            .alert("Something went wrong", isPresented: Binding(
+                get: { vm.errorMessage != nil },
+                set: { if !$0 { vm.errorMessage = nil } })
+            ) {
+                Button("OK", role: .cancel) { vm.errorMessage = nil }
+            } message: {
+                Text(vm.errorMessage ?? "")
+            }
             .alert("Rename", isPresented: .constant(renameTarget != nil)) {
                 TextField("Title", text: $renameText)
                 Button("Save") {
@@ -75,6 +63,48 @@ struct ConversationsView: View {
         }
     }
 
+    @ViewBuilder
+    private func rows(_ list: [Conversation]) -> some View {
+        ForEach(list) { conv in
+            Button {
+                vm.markReadLocally(conv.id)
+                Task {
+                    await chatVM.open(conversation: conv)
+                    Haptics.tapLight()
+                    selectedTab = 0
+                }
+            } label: {
+                conversationRow(conv)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .swipeActions(edge: .trailing) {
+                Button("Delete", systemImage: "trash", role: .destructive) {
+                    Task { await vm.delete(conv.id) }
+                }
+                Button("Rename", systemImage: "pencil") {
+                    renameTarget = conv
+                    renameText = conv.displayTitle
+                }
+                .tint(.indigo)
+            }
+            .swipeActions(edge: .leading) {
+                Button(conv.isPinned ? "Unpin" : "Pin",
+                       systemImage: conv.isPinned ? "pin.slash" : "pin") {
+                    Task { await vm.togglePin(conv) }
+                }
+                .tint(.orange)
+            }
+            .contextMenu {
+                Button(conv.isPinned ? "Unpin" : "Pin",
+                       systemImage: conv.isPinned ? "pin.slash" : "pin") {
+                    Task { await vm.togglePin(conv) }
+                }
+            }
+        }
+    }
+
     private func conversationRow(_ conv: Conversation) -> some View {
         HStack(spacing: 8) {
             if conv.isBranch {
@@ -83,9 +113,23 @@ struct ConversationsView: View {
                     .foregroundStyle(.secondary)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(conv.displayTitle)
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
+                HStack(spacing: 4) {
+                    if conv.unread == true {
+                        Circle()
+                            .fill(Color.accentColor)
+                            .frame(width: 7, height: 7)
+                            .accessibilityLabel("Unread")
+                    }
+                    if conv.isPinned {
+                        Image(systemName: "pin.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                            .accessibilityLabel("Pinned")
+                    }
+                    Text(conv.displayTitle)
+                        .font(.subheadline.weight(conv.unread == true ? .bold : .regular))
+                        .foregroundStyle(.primary)
+                }
                 HStack(spacing: 4) {
                     if conv.recall_only {
                         Label("Recall Only", systemImage: "eye.slash")
@@ -93,9 +137,9 @@ struct ConversationsView: View {
                             .labelStyle(.titleAndIcon)
                             .foregroundStyle(.secondary)
                     }
-                    Text(relativeDate(conv.created_at))
+                    Text(relativeDate(conv.last_activity_at ?? conv.created_at))
                         .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(conv.unread == true ? .secondary : .tertiary)
                 }
             }
             Spacer()
