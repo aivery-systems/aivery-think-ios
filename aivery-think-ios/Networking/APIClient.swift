@@ -110,7 +110,13 @@ final class APIClient {
     // Keychain and the Share extension's App Group mirror never drift.
     private(set) var agentId: String = "default"
 
-    private let session = URLSession.shared
+    // 120s request timeout (URLSession.shared is 60s): loading a very long conversation's
+    // history over a slow link could time out and blank the chat.
+    private let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 120
+        return URLSession(configuration: config)
+    }()
 
     private init() {
         #if DEBUG

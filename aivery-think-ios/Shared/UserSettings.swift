@@ -8,6 +8,10 @@ final class UserSettings: ObservableObject {
     // Motion / visual effects — also auto-suppressed under system Reduce Motion.
     @AppStorage("showPlexus") var showPlexus: Bool = true
     @AppStorage("plexusMemoryEffects") var plexusMemoryEffects: Bool = true
+    // Start a fresh chat when returning after a long time away. Off by default: the open
+    // conversation is kept until the user starts a new one (like the web client).
+    @AppStorage("autoNewChatEnabled") var autoNewChatEnabled: Bool = false
+    @AppStorage("autoNewChatTimeoutMinutes") var autoNewChatTimeoutMinutes: Int = 120
 
     static let shared = UserSettings()
 

@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct MessageBubbleView: View {
+struct MessageBubbleView: View, Equatable {
     let message: MessageRecord
     var isFirstInGroup: Bool = true
     var isLastInGroup: Bool = true
@@ -24,13 +24,29 @@ struct MessageBubbleView: View {
         settings.isAivery ? .white : Color(red: 10/255, green: 10/255, blue: 12/255)
     }
 
+    // Closures are deliberately ignored: they're rebuilt on every parent render and never
+    // compare equal, which made SwiftUI re-run every bubble's body on every keystroke.
+    // Settings / color scheme changes still invalidate via their own observation.
+    static func == (lhs: MessageBubbleView, rhs: MessageBubbleView) -> Bool {
+        lhs.message.id == rhs.message.id
+            && lhs.message.content == rhs.message.content
+            && lhs.message.localImage === rhs.message.localImage
+            && lhs.isFirstInGroup == rhs.isFirstInGroup
+            && lhs.isLastInGroup == rhs.isLastInGroup
+            && (lhs.onBranch == nil) == (rhs.onBranch == nil)
+            && lhs.queuedJobs == rhs.queuedJobs
+    }
+
+    private var parsed: ParsedMessage { ParsedMessage.cached(message.content) }
+
     var body: some View {
+        let parsed = self.parsed
         HStack(alignment: .bottom, spacing: 0) {
             if message.isUser { Spacer(minLength: 56) }
 
             VStack(alignment: message.isUser ? .trailing : .leading, spacing: 4) {
                 // Thinking disclosure (assistant only, first bubble of a run)
-                if !message.isUser, isFirstInGroup, settings.showThinking, let thinking = extractThinking(from: message.content), !thinking.isEmpty {
+                if !message.isUser, isFirstInGroup, settings.showThinking, let thinking = parsed.thinking {
                     DisclosureGroup {
                         MarkdownContentView(text: thinking, style: .secondary)
                             .font(.footnote)
@@ -48,16 +64,16 @@ struct MessageBubbleView: View {
                 }
 
                 // Agent actions (note / remember) — between the thoughts and the reply bubble.
-                if !message.isUser, !agentActions.isEmpty {
-                    AgentActionsBlock(actions: agentActions)
+                if !message.isUser, !parsed.actions.isEmpty {
+                    AgentActionsBlock(actions: parsed.actions)
                 }
 
-                bubble
+                bubble(prose: parsed.prose)
 
                 // Agent action notes ("Stored a memory about …") + saved-memory chips
                 if !message.isUser {
-                    let notes = AgentNotes.extract(from: message.content).notes
-                    let refs = MemoryRefs.extract(from: message.content).refs
+                    let notes = parsed.notes
+                    let refs = parsed.refs
                     let queued = refs.isEmpty ? queuedJobs.flatMap { job in job.items.map { (job.jobId, $0) } } : []
                     if !notes.isEmpty || !refs.isEmpty || !queued.isEmpty {
                         VStack(alignment: .leading, spacing: 3) {
@@ -83,7 +99,7 @@ struct MessageBubbleView: View {
     }
 
     @ViewBuilder
-    private var bubble: some View {
+    private func bubble(prose: String) -> some View {
         Group {
             if message.isUser {
                 VStack(alignment: .trailing, spacing: 5) {
@@ -130,7 +146,7 @@ struct MessageBubbleView: View {
     @ViewBuilder
     private var messageActions: some View {
         Button {
-            UIPasteboard.general.string = message.isUser ? message.content : strippedContent(message.content)
+            UIPasteboard.general.string = message.isUser ? message.content : parsed.copyText
         } label: { Label("Copy", systemImage: "doc.on.doc") }
 
         if let onRetry {
@@ -146,23 +162,6 @@ struct MessageBubbleView: View {
         }
     }
 
-    private func extractThinking(from content: String) -> String? {
-        let clean = MemoryRefs.extract(from: AgentNotes.extract(from: content).content).content
-        let thinking = ThinkText.split(clean).thinking
-        return thinking.isEmpty ? nil : thinking
-    }
-
-    private func strippedContent(_ content: String) -> String {
-        ThinkText.split(MemoryRefs.extract(from: AgentNotes.extract(from: content).content).content).response
-    }
-
-    // Agent actions (note/remember) shown above the bubble; prose goes inside it.
-    private var agentActions: [AgentAction] {
-        message.isUser ? [] : AgentActions.actions(from: strippedContent(message.content))
-    }
-    private var prose: String {
-        AgentActions.plainText(from: strippedContent(message.content))
-    }
 }
 
 /// Small lightbulb chip surfacing an agent action ("Stored a memory about …").

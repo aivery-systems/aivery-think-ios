@@ -6,7 +6,19 @@ import CoreLocation
 @MainActor
 final class ChatViewModel: ObservableObject {
     private let api = APIClient.shared
-    @Published var messages: [MessageRecord] = []
+    @Published var messages: [MessageRecord] = [] {
+        didSet { rebuildRows() }
+    }
+    // Render-ready rows (timestamp + grouping precomputed) — rebuilt only when `messages`
+    // changes, so the list never parses dates or indexes neighbours during a render.
+    private(set) var rows: [MessageRow] = []
+    // Queued memory jobs grouped by message id; rebuilt when `memoryJobs` changes.
+    private(set) var jobsByMessageId: [String: [QueuedMemoryJob]] = [:]
+    // Stream chunks arrive per token; publishing each one re-rendered the chat on every
+    // token. Buffer them and publish ~20×/s instead.
+    private var pendingText = ""
+    private var pendingThinking = ""
+    private var chunkFlushTask: Task<Void, Never>?
     @Published var streamingText = ""
     @Published var streamingThinking = ""
     @Published var streamingNotes: [String] = []
@@ -18,7 +30,9 @@ final class ChatViewModel: ObservableObject {
     @Published var streamingMemories: [WrittenMemoryRef] = []
     // Memories queued for background writing (this conversation). Chips render under the
     // message they belong to — placeholder until the job reaches each item, then saved.
-    @Published var memoryJobs: [QueuedMemoryJob] = []
+    @Published var memoryJobs: [QueuedMemoryJob] = [] {
+        didSet { jobsByMessageId = Dictionary(grouping: memoryJobs.filter { $0.messageId != nil }, by: { $0.messageId! }) }
+    }
     private var memoryJobsPoll: Task<Void, Never>?
     // The open conversation ends in a recent prompt whose reply is still generating server-side
     // (the user left mid-turn; Cortex finishes it detached). Shows the thinking indicator while
@@ -67,7 +81,7 @@ final class ChatViewModel: ObservableObject {
 
     // MARK: – Send
 
-    func sendMessage(_ text: String, image: UIImage? = nil) async {
+    func sendMessage(_ text: String, image: UIImage? = nil, contextConversationIds: [String] = []) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty || image != nil, !isStreaming else { return }
 
@@ -87,7 +101,7 @@ final class ChatViewModel: ObservableObject {
         // Image with no caption: send a default prompt so the model has text to act on
         // (an empty text part errors); the bubble still shows just the image.
         let prompt = (trimmed.isEmpty && image != nil) ? "What's in this image?" : trimmed
-        streamAssistant(userText: prompt, image: image, coordinate: location.coordinate)
+        streamAssistant(userText: prompt, image: image, coordinate: location.coordinate, contextConversationIds: contextConversationIds)
     }
 
     // Re-send a user message (drops everything after it, then re-streams).
@@ -114,7 +128,7 @@ final class ChatViewModel: ObservableObject {
 
     // Builds the Cortex request from current state and starts streaming.
     // The current user message must already be the last item in `messages`.
-    private func streamAssistant(userText: String, image: UIImage? = nil, coordinate: (lat: Double, lon: Double)? = nil) {
+    private func streamAssistant(userText: String, image: UIImage? = nil, coordinate: (lat: Double, lon: Double)? = nil, contextConversationIds: [String] = []) {
         retrievalStages = []
         retrievedMemories = []
 
@@ -140,7 +154,10 @@ final class ChatViewModel: ObservableObject {
                 image: ModelCapabilitiesStore.shared.supportsVision ? image : nil,
                 latitude: coordinate?.lat,
                 longitude: coordinate?.lon,
-                skipMemoryWrite: conversationRecallOnly
+                // Cortex reads them via aivery-api (same org + agent) and itself skips memory
+                // writes when one is Recall Only — the server decides, not this flag.
+                skipMemoryWrite: conversationRecallOnly,
+                contextConversationIds: contextConversationIds
             )
             req.httpBody = try JSONEncoder().encode(body)
         } catch {
@@ -150,6 +167,7 @@ final class ChatViewModel: ObservableObject {
 
         stopAwaitingReply()
         isStreaming = true
+        resetChunkBuffers()
         streamingText = ""
         streamingThinking = ""
         streamingNotes = []
@@ -185,6 +203,7 @@ final class ChatViewModel: ObservableObject {
     // running server-side; this client just stops following it.
     private func detachFromTurn() {
         sseClient.cancel()
+        resetChunkBuffers()
         isStreaming = false
         LiveActivityManager.shared.end()
         endTurnBackgroundTask()
@@ -215,6 +234,7 @@ final class ChatViewModel: ObservableObject {
                 // suspended in the background): Cortex finishes and stores it regardless, so
                 // wait for the stored reply instead of reporting a network error.
                 if code < 0, wasMidTurn, let cid = self.conversationId {
+                    self.resetChunkBuffers()
                     self.streamingText = ""
                     self.streamingThinking = ""
                     self.streamingNotes = []
@@ -239,10 +259,12 @@ final class ChatViewModel: ObservableObject {
         turnAccepted = true
         switch event {
         case .chunk(let text):
-            if streamingText.isEmpty { LiveActivityManager.shared.update(phase: "Responding") }
-            streamingText += text
+            if streamingText.isEmpty && pendingText.isEmpty { LiveActivityManager.shared.update(phase: "Responding") }
+            pendingText += text
+            scheduleChunkFlush()
         case .thinkChunk(let text):
-            streamingThinking += text
+            pendingThinking += text
+            scheduleChunkFlush()
         case .retrievalStage(let stage):
             retrievalStages.append(stage)
             showRetrievalSheet = true
@@ -279,8 +301,57 @@ final class ChatViewModel: ObservableObject {
         }
     }
 
+    private func scheduleChunkFlush() {
+        guard chunkFlushTask == nil else { return }
+        chunkFlushTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            guard let self, !Task.isCancelled else { return }
+            self.chunkFlushTask = nil
+            self.flushChunks()
+        }
+    }
+
+    private func flushChunks() {
+        if !pendingText.isEmpty { streamingText += pendingText; pendingText = "" }
+        if !pendingThinking.isEmpty { streamingThinking += pendingThinking; pendingThinking = "" }
+    }
+
+    private func resetChunkBuffers() {
+        chunkFlushTask?.cancel()
+        chunkFlushTask = nil
+        pendingText = ""
+        pendingThinking = ""
+    }
+
+    private func rebuildRows() {
+        var out: [MessageRow] = []
+        out.reserveCapacity(messages.count)
+        var prevDate: Date?
+        for (i, msg) in messages.enumerated() {
+            let date = msg.date
+            var separator: Date?
+            if let d = date {
+                // Timestamp above the first message and after any >15-min gap.
+                if i == 0 { separator = d }
+                else if let p = prevDate { if d.timeIntervalSince(p) > 15 * 60 { separator = d } }
+                else { separator = d }
+            }
+            out.append(MessageRow(
+                message: msg,
+                separatorDate: separator,
+                isFirstInGroup: i == 0 || messages[i - 1].role != msg.role,
+                isLastInGroup: i == messages.count - 1 || messages[i + 1].role != msg.role
+            ))
+            prevDate = date
+        }
+        rows = out
+    }
+
     private func finalizeStream() {
         guard isStreaming else { return }
+        chunkFlushTask?.cancel()
+        chunkFlushTask = nil
+        flushChunks()
         isStreaming = false
         LiveActivityManager.shared.end()
         endTurnBackgroundTask()
@@ -368,10 +439,15 @@ final class ChatViewModel: ObservableObject {
     func loadMessages(conversationId cid: String) async {
         do {
             let msgs: [MessageRecord] = try await api.request("/api/conversations/\(cid)/messages")
+            guard conversationId == cid else { return }   // user switched away mid-load
             messages = msgs
             markRead(cid)
         } catch {
+            // Don't silently show an empty chat — that reads as "it started a new one".
+            // The conversation id is kept, so the next message still lands in it.
+            guard conversationId == cid else { return }
             messages = []
+            errorMessage = "Couldn't load this conversation's messages. Reopen it from History to retry."
         }
         await restoreMemoryJobs(conversationId: cid)
         awaitReplyIfPending(conversationId: cid)

@@ -25,6 +25,18 @@ struct CortexChatRequest: Encodable {
     let latitude: Double?
     let longitude: Double?
     let skip_memory_write: Bool
+    // Conversations @-attached to this message; their transcripts become context.
+    let context_conversation_ids: [String]?
+
+    // Cortex reads `lat` / `lon` — encoding `latitude` / `longitude` silently dropped
+    // the user's location from every iOS turn.
+    enum CodingKeys: String, CodingKey {
+        case message, agent_id, stream, think, conversation_id, history, user_system_prompt,
+             chat_style, provider_type, provider_url, api_key, model, image, skip_memory_write,
+             context_conversation_ids
+        case latitude = "lat"
+        case longitude = "lon"
+    }
 
     init(message: String, agentId: String, think: Bool = false,
          conversationId: String? = nil,
@@ -34,7 +46,8 @@ struct CortexChatRequest: Encodable {
          image: UIImage? = nil,
          latitude: Double? = nil,
          longitude: Double? = nil,
-         skipMemoryWrite: Bool = false) {
+         skipMemoryWrite: Bool = false,
+         contextConversationIds: [String] = []) {
         self.message = message
         self.agent_id = agentId
         self.think = think
@@ -45,6 +58,7 @@ struct CortexChatRequest: Encodable {
         self.latitude = latitude
         self.longitude = longitude
         self.skip_memory_write = skipMemoryWrite
+        self.context_conversation_ids = contextConversationIds.isEmpty ? nil : contextConversationIds
         self.chat_style = (chatStyle?.isEmpty == false) ? chatStyle : nil
         if let p = provider, p.enabled, !p.baseUrl.isEmpty {
             self.provider_type = p.type

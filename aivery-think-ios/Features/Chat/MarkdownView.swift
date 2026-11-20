@@ -38,6 +38,48 @@ private func parseSegments(_ raw: String) -> [MDSegment] {
     return segments
 }
 
+// MARK: - Rendered segments (cached)
+
+/// A segment with its inline markdown + LaTeX already rendered. Building the
+/// AttributedString (LaTeX regex passes + markdown parse) is the expensive part of a
+/// bubble, so it happens once per distinct text, not on every SwiftUI render.
+private enum RenderedSegment {
+    case text(AttributedString?, plain: String)
+    case code(lang: String, body: String)
+}
+
+private final class RenderedBox {
+    let segments: [RenderedSegment]
+    init(_ s: [RenderedSegment]) { segments = s }
+}
+
+private let renderedCache: NSCache<NSString, RenderedBox> = {
+    let c = NSCache<NSString, RenderedBox>()
+    c.countLimit = 2000
+    return c
+}()
+
+private func renderedSegments(_ raw: String) -> [RenderedSegment] {
+    let key = raw as NSString
+    if let hit = renderedCache.object(forKey: key) { return hit.segments }
+    let out: [RenderedSegment] = parseSegments(raw).compactMap { seg in
+        switch seg {
+        case .code(let lang, let body):
+            return .code(lang: lang, body: body)
+        case .text(let s):
+            let trimmed = LatexText.render(s.trimmingCharacters(in: .newlines))
+            if trimmed.isEmpty { return nil }
+            let attr = try? AttributedString(
+                markdown: trimmed,
+                options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+            )
+            return .text(attr, plain: trimmed)
+        }
+    }
+    renderedCache.setObject(RenderedBox(out), forKey: key)
+    return out
+}
+
 // MARK: - Markdown content view
 
 struct MarkdownContentView: View {
@@ -45,39 +87,28 @@ struct MarkdownContentView: View {
     // Thoughts render dimmed (.secondary); replies stay .primary.
     var style: HierarchicalShapeStyle = .primary
 
-    private var segments: [MDSegment] { parseSegments(text) }
-
     var body: some View {
+        let segments = renderedSegments(text)
         VStack(alignment: .leading, spacing: 8) {
             ForEach(Array(segments.enumerated()), id: \.offset) { _, seg in
                 switch seg {
-                case .text(let s):
-                    inlineText(s)
+                case .text(let attr, let plain):
+                    if let attr {
+                        Text(attr)
+                            .foregroundStyle(style)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text(plain)
+                            .foregroundStyle(style)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 case .code(let lang, let body):
                     CodeBlockView(lang: lang, code: body)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder
-    private func inlineText(_ s: String) -> some View {
-        let trimmed = LatexText.render(s.trimmingCharacters(in: .newlines))
-        if trimmed.isEmpty { EmptyView() }
-        else if let attr = try? AttributedString(
-            markdown: trimmed,
-            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        ) {
-            Text(attr)
-                .foregroundStyle(style)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
-        } else {
-            Text(trimmed)
-                .foregroundStyle(style)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
     }
 }
 

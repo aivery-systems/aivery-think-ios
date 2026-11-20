@@ -1,7 +1,6 @@
 import SwiftUI
 
 private let sessionTimeoutKey = "lastActiveAt"
-private let sessionTimeout: TimeInterval = 30 * 60  // 30 minutes
 
 struct ContentView: View {
     @Binding var isSignedIn: Bool
@@ -27,13 +26,21 @@ struct ContentView: View {
         .ignoresSafeArea(.keyboard)
         .onChange(of: scenePhase) {
             switch scenePhase {
-            case .background, .inactive:
+            case .background:
+                // Stamp only on .background — .inactive also fires on the way back to
+                // .active (and for Control Center, app switcher), which re-stamped the
+                // time and made the timeout fire inconsistently.
                 UserDefaults.standard.set(Date(), forKey: sessionTimeoutKey)
             case .active:
                 let last = UserDefaults.standard.object(forKey: sessionTimeoutKey) as? Date
-                if let last, Date().timeIntervalSince(last) > sessionTimeout {
+                UserDefaults.standard.removeObject(forKey: sessionTimeoutKey)
+                let settings = UserSettings.shared
+                let timeout = TimeInterval(settings.autoNewChatTimeoutMinutes * 60)
+                if settings.autoNewChatEnabled, let last, Date().timeIntervalSince(last) > timeout {
                     chatVM.startNewChat()
                 }
+            case .inactive:
+                break
             @unknown default:
                 break
             }

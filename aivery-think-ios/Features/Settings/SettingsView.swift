@@ -74,6 +74,26 @@ struct SettingsView: View {
                     .disabled(!capabilities.supportsThinking)
                 }
 
+                // ── Conversations ─────────────────────────────────────────
+                Section {
+                    Toggle(isOn: $settings.autoNewChatEnabled) {
+                        HStack { icon("clock.arrow.circlepath", tint: .green); Text("New chat after time away") }
+                    }
+                    if settings.autoNewChatEnabled {
+                        Picker(selection: $settings.autoNewChatTimeoutMinutes) {
+                            Text("30 minutes").tag(30)
+                            Text("2 hours").tag(120)
+                            Text("8 hours").tag(480)
+                        } label: {
+                            HStack { icon("hourglass", tint: .gray); Text("After") }
+                        }
+                    }
+                } header: {
+                    Text("Conversations")
+                } footer: {
+                    Text("When off, Think reopens the conversation you were in. When on, coming back after the chosen time away starts a fresh chat.")
+                }
+
                 // ── Visual effects ────────────────────────────────────────
                 Section {
                     Toggle(isOn: $settings.showPlexus) {
